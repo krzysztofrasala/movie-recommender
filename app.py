@@ -39,7 +39,7 @@ def fetch_movie_trailer(movie_id):
     except Exception:
         return None
 
-# 3. Function to fetch trending movies
+# 3. Function to fetch trending movies of the day
 def get_trending_movies():
     api_key = st.secrets["TMDB_API_KEY"]
     url = f"https://api.themoviedb.org/3/trending/movie/day?api_key={api_key}"
@@ -78,21 +78,38 @@ def recommend(movie):
 st.set_page_config(page_title="Movie Master Recommender", layout="wide")
 st.title('🎬 Movie Master Recommender')
 
-# Trending Section
+# --- SECTION: Trending Today (Now with trailers and details!) ---
 st.subheader("🔥 Trending Today")
 trending_movies = get_trending_movies()
 if trending_movies:
     t_cols = st.columns(5)
     for idx, movie in enumerate(trending_movies):
         with t_cols[idx]:
+            m_id = movie.get('id')
+            m_title = movie.get('title')
             p_path = "https://image.tmdb.org/t/p/w500" + movie.get('poster_path', '')
+            
             st.image(p_path)
-            st.write(f"**{movie.get('title')}**")
-            st.write(f"⭐ {movie.get('vote_average')}")
+            st.write(f"**{m_title}**")
+            st.write(f"⭐ {round(movie.get('vote_average', 0), 1)}/10")
+            
+            # Trailer Expander
+            t_trailer_url = fetch_movie_trailer(m_id)
+            if t_trailer_url:
+                with st.expander("📺 Watch Trailer"):
+                    st.video(t_trailer_url)
+            
+            # Plot Expander
+            with st.expander("📖 Read Plot"):
+                st.write(movie.get('overview', 'No description available.'))
+            
+            # JustWatch Link
+            t_encoded_title = urllib.parse.quote(m_title)
+            st.markdown(f"[Where to watch? 📺](https://www.justwatch.com/pl/search?q={t_encoded_title})")
 
 st.markdown("---")
 
-# Search Section
+# --- SECTION: Search & Recommendations ---
 st.subheader("🔍 Find Your Next Movie")
 selected_movie = st.selectbox('Select a movie you enjoyed:', movies['title'].values)
 
@@ -106,15 +123,16 @@ if st.button('Get Recommendations'):
             st.write(f"**{item['title']}**")
             st.write(f"⭐ {item['rating']}/10")
             
-            # Trailer and Plot in Expanders
-            trailer_url = fetch_movie_trailer(item['id'])
-            if trailer_url:
+            # Trailer Expander
+            r_trailer_url = fetch_movie_trailer(item['id'])
+            if r_trailer_url:
                 with st.expander("📺 Watch Trailer"):
-                    st.video(trailer_url)
+                    st.video(r_trailer_url)
             
+            # Plot Expander
             with st.expander("📖 Read Plot"):
                 st.write(item['overview'])
             
-            # External Link
-            encoded_title = urllib.parse.quote(item['title'])
-            st.markdown(f"[Where to watch? 📺](https://www.justwatch.com/pl/search?q={encoded_title})")
+            # JustWatch Link
+            r_encoded_title = urllib.parse.quote(item['title'])
+            st.markdown(f"[Where to watch? 📺](https://www.justwatch.com/pl/search?q={r_encoded_title})")
