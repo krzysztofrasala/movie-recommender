@@ -14,28 +14,38 @@ def fetch_movie_details(movie_id):
         response.raise_for_status()
         data = response.json()
         
-        details = {
+        return {
             "poster": "https://image.tmdb.org/t/p/w500" + data.get('poster_path', ''),
             "rating": round(data.get('vote_average', 0), 1),
-            "overview": data.get('overview', 'No description available.')
+            "overview": data.get('overview', 'No description available.'),
+            "id": movie_id
         }
-        return details
     except Exception:
-        return {
-            "poster": "https://via.placeholder.com/500x750?text=Error",
-            "rating": "N/A",
-            "overview": "Could not load data."
-        }
+        return None
 
-# 2. Function to fetch trending movies of the day
-def get_trending_movies():
+# 2. Function to fetch YouTube Trailer Link
+def fetch_movie_trailer(movie_id):
     api_key = st.secrets["TMDB_API_KEY"]
-    url = f"https://api.themoviedb.org/3/trending/movie/day?api_key={api_key}"
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}/videos?api_key={api_key}&language=en-US"
     
     try:
         response = requests.get(url)
         data = response.json()
-        return data.get('results', [])[:5] # Get top 5
+        # Look for a YouTube video of type 'Trailer'
+        for video in data.get('results', []):
+            if video['site'] == 'YouTube' and video['type'] == 'Trailer':
+                return f"https://www.youtube.com/watch?v={video['key']}"
+        return None
+    except Exception:
+        return None
+
+# 3. Function to fetch trending movies
+def get_trending_movies():
+    api_key = st.secrets["TMDB_API_KEY"]
+    url = f"https://api.themoviedb.org/3/trending/movie/day?api_key={api_key}"
+    try:
+        response = requests.get(url)
+        return response.json().get('results', [])[:5]
     except Exception:
         return []
 
@@ -59,15 +69,16 @@ def recommend(movie):
         m_id = movies.iloc[i[0]].movie_id
         m_title = movies.iloc[i[0]].title
         details = fetch_movie_details(m_id)
-        recommended_data.append({"title": m_title, "details": details})
-        
+        if details:
+            details['title'] = m_title
+            recommended_data.append(details)
     return recommended_data
 
 # --- UI Configuration ---
-st.set_page_config(page_title="Pro Movie Recommender", layout="wide")
-st.title('🎬 Pro Movie Recommender')
+st.set_page_config(page_title="Movie Master Recommender", layout="wide")
+st.title('🎬 Movie Master Recommender')
 
-# 3. Trending Section
+# Trending Section
 st.subheader("🔥 Trending Today")
 trending_movies = get_trending_movies()
 if trending_movies:
@@ -81,7 +92,7 @@ if trending_movies:
 
 st.markdown("---")
 
-# 4. Search & Recommendation Section
+# Search Section
 st.subheader("🔍 Find Your Next Movie")
 selected_movie = st.selectbox('Select a movie you enjoyed:', movies['title'].values)
 
@@ -91,14 +102,19 @@ if st.button('Get Recommendations'):
     r_cols = st.columns(5)
     for i, item in enumerate(recommendations):
         with r_cols[i]:
-            st.image(item['details']['poster'])
+            st.image(item['poster'])
             st.write(f"**{item['title']}**")
-            st.write(f"⭐ {item['details']['rating']}/10")
+            st.write(f"⭐ {item['rating']}/10")
             
-            with st.expander("Read Plot"):
-                st.write(item['details']['overview'])
+            # Trailer and Plot in Expanders
+            trailer_url = fetch_movie_trailer(item['id'])
+            if trailer_url:
+                with st.expander("📺 Watch Trailer"):
+                    st.video(trailer_url)
             
-            # Streaming link
+            with st.expander("📖 Read Plot"):
+                st.write(item['overview'])
+            
+            # External Link
             encoded_title = urllib.parse.quote(item['title'])
-            url = f"https://www.justwatch.com/pl/search?q={encoded_title}"
-            st.markdown(f"[Watch Here 📺]({url})")
+            st.markdown(f"[Where to watch? 📺](https://www.justwatch.com/pl/search?q={encoded_title})")
