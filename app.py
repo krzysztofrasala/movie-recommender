@@ -78,7 +78,7 @@ def recommend(movie):
 st.set_page_config(page_title="Movie Master Recommender", layout="wide")
 st.title('🎬 Movie Master Recommender')
 
-# --- SECTION: Trending Today (Now with trailers and details!) ---
+# --- SECTION: Trending Today ---
 st.subheader("🔥 Trending Today")
 trending_movies = get_trending_movies()
 if trending_movies:
@@ -103,9 +103,9 @@ if trending_movies:
             with st.expander("📖 Read Plot"):
                 st.write(movie.get('overview', 'No description available.'))
             
-            # JustWatch Link
+            # JustWatch Button (Improved link)
             t_encoded_title = urllib.parse.quote(m_title)
-            st.markdown(f"[Where to watch? 📺](https://www.justwatch.com/pl/search?q={t_encoded_title})")
+            st.link_button("Where to watch? 📺", f"https://www.justwatch.com/pl/search?q={t_encoded_title}", use_container_width=True)
 
 st.markdown("---")
 
@@ -113,7 +113,7 @@ st.markdown("---")
 st.subheader("🔍 Find Your Next Movie")
 selected_movie = st.selectbox('Select a movie you enjoyed:', movies['title'].values)
 
-if st.button('Get Recommendations'):
+if st.button('Get Recommendations', use_container_width=True):
     recommendations = recommend(selected_movie)
     
     r_cols = st.columns(5)
@@ -133,6 +133,6 @@ if st.button('Get Recommendations'):
             with st.expander("📖 Read Plot"):
                 st.write(item['overview'])
             
-            # JustWatch Link
+            # JustWatch Button (Improved link)
             r_encoded_title = urllib.parse.quote(item['title'])
-            st.markdown(f"[Where to watch? 📺](https://www.justwatch.com/pl/search?q={r_encoded_title})")
+            st.link_button("Where to watch? 📺", f"https://www.justwatch.com/pl/search?q={r_encoded_title}", use_container_width=True)
