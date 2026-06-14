@@ -1,58 +1,175 @@
-# 🎬 Movie Recommendation System
+# 🎬 CineScope — Movie & TV Discovery App
 
-A machine learning-based movie recommender system that uses **Content-Based Filtering** to suggest movies similar to a user's selection based on tags, genres, cast, and crew.
+> Discover movies and shows you'll love, powered by TMDB.
 
-## 🚀 Features
-- **Smart Recommendations**: Suggests the top 5 most similar movies.
-- **Streamlit Web UI**: An interactive and user-friendly interface.
-- **NLP-Powered**: Utilizes Natural Language Processing (Stemming & CountVectorizer) to analyze movie metadata.
-- **Data-Driven**: Features a robust preprocessing pipeline using Pandas and Scikit-learn.
+**Live Demo → [cinescope.streamlit.app](https://movie-recommender-j39lcqbuavwn7ndlblqytc.streamlit.app/)**
+
+---
+
+## ✨ Features
+
+### 🏠 Home
+- **Film of the Day** — a handpicked featured movie every day with a cinematic backdrop banner
+- **Now Playing in Cinemas** — live data of what's currently in theatres
+- **Trending Today** — the 20 most popular movies right now, paginated
+- **Recommended For You** — personalized picks based on your star ratings
+
+### 🔍 Discovery
+- **My Library** — search 5,000+ movies with text filter, genre & year sliders
+- **Mood Picker** — one click to get Comedy / Horror / Action / Romance / Sci-Fi / Thriller / Drama / Animation picks
+- **Browse by Decade** — 1980s · 1990s · 2000s · 2010s · 2020s
+- **🎲 Surprise Me** — instant random recommendation from your active filters
+- **Search All Movies & TV (TMDB)** — search the entire TMDB database, not just the local library
+- **TV Show support** — search, details, and similar show recommendations for series
+- **Search by Actor or Director** — find a person and browse their full filmography
+
+### 🎯 Recommendations
+- **Content-Based Filtering** — NLP-powered similarity using genres, cast, crew and keywords
+- **TMDB Collaborative Recommendations** — for movies outside the local dataset
+- **More Like This** — on every trending and now-playing card
+- **🏆 Top 10** — most popular and top-rated charts with ranked cards
+
+### 🎬 Movie & TV Details
+- Full modal with poster, tagline, runtime, budget, genres
+- **Cast photos** — profile pictures with character names for up to 8 actors
+- Embedded YouTube trailer
+- Color-coded rating (green / orange / red)
+- Direct link to JustWatch (streaming availability)
+
+### ⚖️ Compare Movies
+- Side-by-side comparison of any two movies
+- **Content Similarity Score** — percentage match based on the cosine similarity matrix
+- Highlights shared director, genres, and cast members
+
+### ❤️ Personal
+- **Watchlist** — save movies with poster thumbnails in the sidebar
+- **Star Ratings** — rate any recommended movie 1–5 stars
+- **Search History** — one-click re-run of your last 10 searches
+- **Your Stats** — watchlist count, rated movies count, average rating
+
+---
 
 ## 🛠️ Tech Stack
-- **Python**: Core logic and data processing.
-- **Pandas & NumPy**: Data manipulation and cleaning.
-- **Scikit-learn**: Vectorization and Cosine Similarity calculation.
-- **Streamlit**: Web application framework for the UI.
-- **NLTK**: Text preprocessing (Stemming).
 
-## 🧠 How It Works
-1. **Data Integration**: Merges `movies.csv` and `credits.csv` into a single dataset.
-2. **Tag Creation**: Combines movie overviews, genres, keywords, cast, and directors into a unified "tags" column.
-3. **Vectorization**: Converts text tags into numerical vectors using the **Bag of Words** (CountVectorizer) technique.
-4. **Similarity Calculation**: Uses **Cosine Similarity** to calculate the mathematical distance between movie vectors.
+| Layer | Technology |
+|---|---|
+| Frontend | Streamlit 1.57 |
+| Recommendation Engine | Scikit-learn (TF · Cosine Similarity) |
+| NLP | NLTK (Porter Stemmer) · CountVectorizer |
+| Movie Data (live) | TMDB API |
+| Movie Data (local) | TMDB 5000 Movies Dataset |
+| Language | Python 3.12 |
+
+---
+
+## 🧠 How the Recommendation Engine Works
+
+```
+Raw Data (movies.csv + credits.csv)
+        │
+        ▼
+Tag Creation — overview + genres + keywords + cast + director
+        │
+        ▼
+Text Preprocessing — lowercase, stemming (NLTK Porter)
+        │
+        ▼
+CountVectorizer — Bag of Words (5,000 features)
+        │
+        ▼
+Cosine Similarity Matrix — 4,806 × 4,806
+        │
+        ▼
+Top 10 most similar movies → parallel TMDB API fetch
+```
+
+For movies **outside** the local dataset (e.g. from TMDB search or TV shows), the app falls back to TMDB's `/recommendations` endpoint which uses collaborative filtering from millions of users.
+
+---
 
 ## ⚙️ Setup & Installation
 
-### 1. Clone the Repository
+### 1. Clone the repository
 ```bash
 git clone https://github.com/krzysztofrasala/movie-recommender.git
 cd movie-recommender
 ```
 
-### 2. Virtual Environment
+### 2. Create a virtual environment
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Generate the Model (Important)
-The model files (`.pkl`) are too large for GitHub storage. You must generate them locally:
-1. Open `recommender.ipynb` in your code editor (VS Code or Jupyter).
-2. **Run All Cells** to process the data and export the models.
-3. Verify that `movie_dict.pkl` and `similarity.pkl` have been created in the root directory.
+### 3. Get a TMDB API key
+1. Create a free account at [themoviedb.org](https://www.themoviedb.org/)
+2. Go to **Settings → API** and generate an API key
 
-## 🏃 Usage
-Run the following command to start the web interface:
+### 4. Add your API key
+Create the file `.streamlit/secrets.toml`:
+```toml
+TMDB_API_KEY = "your_api_key_here"
+```
+> ⚠️ This file is in `.gitignore` — your key will never be committed.
+
+### 5. Generate the model files
+The `.pkl` model files are too large for GitHub. Generate them locally:
+```bash
+# Open the notebook and run all cells
+jupyter notebook recommender.ipynb
+```
+This creates `movie_dict.pkl` and `similarity.pkl` in the project root.
+
+### 6. Run the app
 ```bash
 streamlit run app.py
 ```
 
+---
+
 ## 📂 Project Structure
-- `app.py`: The main Streamlit web application.
-- `recommender.ipynb`: Data cleaning, feature engineering, and model building.
-- `requirements.txt`: Project dependencies.
-- `movies.csv / credits.csv`: Raw movie datasets.
+
+```
+movie-recommender/
+├── app.py                  # Main Streamlit application
+├── recommender.ipynb       # Data processing & model building notebook
+├── requirements.txt        # Python dependencies
+├── movies.csv              # TMDB 5000 movies dataset
+├── credits.csv             # Cast & crew data
+├── ratings.csv             # MovieLens user ratings
+├── movie_dict.pkl          # Processed movie data (generated)
+├── similarity.pkl          # Cosine similarity matrix (generated)
+└── .streamlit/
+    └── secrets.toml        # API keys (not committed)
+```
 
 ---
-*Created as a portfolio project to demonstrate NLP and Machine Learning Recommendation Systems.*
+
+## 🚀 Deploying to Streamlit Cloud
+
+1. Push your code to GitHub (without `.pkl` files and `secrets.toml`)
+2. Go to [share.streamlit.io](https://share.streamlit.io/) and connect your repo
+3. In **App settings → Secrets**, add:
+```toml
+TMDB_API_KEY = "your_api_key_here"
+```
+4. The `.pkl` files need to be added manually or committed via Git LFS
+
+---
+
+## 📸 Screenshots
+
+| Film of the Day | Recommendations | Movie Details |
+|---|---|---|
+| Cinematic banner with backdrop | 10 results in 2 rows | Cast photos + trailer |
+
+---
+
+## 📄 License
+
+MIT License — feel free to fork, modify and build on top of this project.
+
+---
+
+*Data provided by [TMDB](https://www.themoviedb.org) · Streaming info via [JustWatch](https://www.justwatch.com)*
