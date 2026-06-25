@@ -80,6 +80,16 @@ def poster_html(poster_url, rating, is_hot=False, year=None):
         {hot_badge}{year_tag}
     </div>"""
 
+def provider_logos_html(providers):
+    if not providers:
+        return ""
+    logos = "".join(
+        f'<img src="{p["logo"]}" title="{p["name"]}" '
+        f'style="width:22px;height:22px;border-radius:4px;object-fit:cover;">'
+        for p in providers[:4]
+    )
+    return f'<div style="display:flex;gap:4px;margin:4px 0 2px 0;align-items:center;">{logos}</div>'
+
 def genre_chips_html(genres):
     if not genres:
         return ""
@@ -331,6 +341,45 @@ def discover_by_decade(start_year, end_year):
     except:
         return []
 
+@st.cache_data(ttl=86400)
+def fetch_providers_list(region='PL'):
+    api_key = st.secrets["TMDB_API_KEY"]
+    try:
+        r = requests.get(
+            f"https://api.themoviedb.org/3/watch/providers/movie?api_key={api_key}&watch_region={region}",
+            timeout=5,
+        )
+        results = sorted(r.json().get('results', []), key=lambda x: x.get('display_priority', 999))
+        return [
+            {'id': p['provider_id'], 'name': p['provider_name'],
+             'logo': f"https://image.tmdb.org/t/p/original{p['logo_path']}"}
+            for p in results[:12] if p.get('logo_path')
+        ]
+    except:
+        return []
+
+@st.cache_data(ttl=86400)
+def fetch_movie_providers(movie_id, region='PL'):
+    api_key = st.secrets["TMDB_API_KEY"]
+    try:
+        r = requests.get(
+            f"https://api.themoviedb.org/3/movie/{movie_id}/watch/providers?api_key={api_key}",
+            timeout=5,
+        )
+        flatrate = r.json().get('results', {}).get(region, {}).get('flatrate', [])
+        return [
+            {'id': p['provider_id'], 'name': p['provider_name'],
+             'logo': f"https://image.tmdb.org/t/p/original{p['logo_path']}"}
+            for p in flatrate if p.get('logo_path')
+        ]
+    except:
+        return []
+
+def fetch_providers_batch(movie_ids, region='PL'):
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        results = list(ex.map(lambda mid: fetch_movie_providers(mid, region), movie_ids))
+    return dict(zip(movie_ids, results))
+
 # ── DATA LOADING ───────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
@@ -490,13 +539,15 @@ def show_tv_details(tv_id, title, poster, rating, overview):
     st.link_button("Find where to watch 📺", f"https://www.justwatch.com/pl/search?q={urllib.parse.quote(title)}", use_container_width=True)
 
 # ── RENDER HELPERS ─────────────────────────────────────────────────────────────
-def render_rec_card(col, item):
+def render_rec_card(col, item, providers=None):
     with col:
         genres = get_local_genres(item['title'])
         st.markdown(poster_html(item['poster'], item['rating'], item['rating'] >= 8.0), unsafe_allow_html=True)
         st.markdown(f"**{item['title']}**")
         if genres:
             st.markdown(genre_chips_html(genres), unsafe_allow_html=True)
+        if providers:
+            st.markdown(provider_logos_html(providers), unsafe_allow_html=True)
 
         if st.button("ℹ️ Details", key=f"rd_{item['id']}", use_container_width=True):
             show_movie_details(item['id'], item['title'], item['poster'], item['rating'], item['overview'])
@@ -517,16 +568,23 @@ def render_rec_card(col, item):
             st.session_state.user_ratings[item['id']] = new_r
             st.session_state.rated_movies_info[item['id']] = {'title': item['title'], 'poster': item['poster']}
 
-def render_recommendations(recs):
+def render_recommendations(recs, active_provider_ids=None):
     if not recs:
         return
+    providers_map = fetch_providers_batch([r['id'] for r in recs])
+    if active_provider_ids:
+        recs = [r for r in recs if any(p['id'] in active_provider_ids for p in providers_map.get(r['id'], []))]
+        if not recs:
+            st.info("No movies found on the selected streaming platforms. Try adjusting the filter.")
+            return
     rows = [recs[:5], recs[5:10]] if len(recs) >= 6 else [recs]
     for row in rows:
         cols = st.columns(5)
         for i, item in enumerate(row):
-            render_rec_card(cols[i], item)
+            render_rec_card(cols[i], item, providers_map.get(item['id']))
 
-def render_movie_row(movie_list, key_prefix):
+def render_movie_row(movie_list, key_prefix, active_provider_ids=None):
+    providers_map = fetch_providers_batch([m['id'] for m in movie_list]) if active_provider_ids else {}
     cols = st.columns(5)
     for idx, m in enumerate(movie_list):
         m_id = m.get('id')
@@ -538,6 +596,8 @@ def render_movie_row(movie_list, key_prefix):
         with cols[idx]:
             st.markdown(poster_html(m_poster, m_rating, m_rating >= 8.0, m_year), unsafe_allow_html=True)
             st.markdown(f"**{m_title}**")
+            if active_provider_ids and providers_map.get(m_id):
+                st.markdown(provider_logos_html(providers_map[m_id]), unsafe_allow_html=True)
             if st.button("ℹ️ Details", key=f"{key_prefix}_d_{m_id}", use_container_width=True):
                 show_movie_details(m_id, m_title, m_poster, m_rating, m_overview)
             if st.button("🎬 More like this", key=f"{key_prefix}_m_{m_id}", use_container_width=True):
@@ -699,6 +759,15 @@ with st.sidebar:
     min_year, max_year = int(valid_years.min()), int(valid_years.max())
     year_range = st.slider("Release Year", min_year, max_year, (min_year, max_year))
 
+    providers_list = fetch_providers_list()
+    provider_name_to_id = {p['name']: p['id'] for p in providers_list}
+    selected_provider_names = st.multiselect(
+        "Streaming on",
+        options=list(provider_name_to_id.keys()),
+        placeholder="Any platform...",
+    )
+    selected_provider_ids = {provider_name_to_id[n] for n in selected_provider_names}
+
     total_wl = len(st.session_state.watchlist)
     total_rated = len(st.session_state.rated_movies_info)
     if total_wl > 0 or total_rated > 0:
@@ -792,7 +861,7 @@ st.markdown("---")
 now_playing = get_now_playing()
 if now_playing:
     st.subheader("🎭 Now Playing in Cinemas")
-    render_movie_row(now_playing, "np")
+    render_movie_row(now_playing, "np", active_provider_ids=selected_provider_ids or None)
     st.markdown("---")
 
 # ── TRENDING ───────────────────────────────────────────────────────────────────
@@ -808,7 +877,7 @@ if all_trending:
         if st.button("➡️", use_container_width=True):
             if st.session_state.trending_index < 15:
                 st.session_state.trending_index += 5
-    render_movie_row(all_trending[st.session_state.trending_index:st.session_state.trending_index + 5], "tr")
+    render_movie_row(all_trending[st.session_state.trending_index:st.session_state.trending_index + 5], "tr", active_provider_ids=selected_provider_ids or None)
 
 st.markdown("---")
 
@@ -817,13 +886,13 @@ for_you = recommend_for_you()
 if for_you:
     st.subheader("💡 Recommended For You")
     st.caption("Based on movies you rated 4–5 stars")
-    render_recommendations(for_you)
+    render_recommendations(for_you, active_provider_ids=selected_provider_ids or None)
     st.markdown("---")
 
 # ── RECOMMENDATIONS ────────────────────────────────────────────────────────────
 if st.session_state.recommendations:
     st.subheader(f"🎯 Similar to: *{st.session_state.rec_source}*")
-    render_recommendations(st.session_state.recommendations)
+    render_recommendations(st.session_state.recommendations, active_provider_ids=selected_provider_ids or None)
     st.markdown("---")
 
 # ── TABS ───────────────────────────────────────────────────────────────────────
