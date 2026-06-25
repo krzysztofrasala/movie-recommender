@@ -6,6 +6,7 @@ import urllib.parse
 import ast
 import datetime
 import json
+import re
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
@@ -340,6 +341,116 @@ def discover_by_decade(start_year, end_year):
                 for m in r.json().get('results', [])[:10]]
     except:
         return []
+
+# ── NATURAL LANGUAGE SEARCH ────────────────────────────────────────────────────
+_NL_GENRES = {
+    'comedy': 35, 'funny': 35, 'laugh': 35, 'humor': 35, 'humour': 35, 'hilarious': 35,
+    'horror': 27, 'scary': 27, 'frightening': 27, 'terrifying': 27, 'creepy': 27, 'spooky': 27,
+    'romance': 10749, 'romantic': 10749, 'love story': 10749,
+    'action': 28, 'fight': 28, 'exciting': 28, 'explosive': 28,
+    'adventure': 12,
+    'sci-fi': 878, 'scifi': 878, 'science fiction': 878, 'space': 878, 'futuristic': 878, 'aliens': 878,
+    'drama': 18, 'emotional': 18, 'intense': 18,
+    'animation': 16, 'animated': 16, 'cartoon': 16, 'anime': 16,
+    'thriller': 53, 'suspense': 53, 'tense': 53,
+    'mystery': 9648, 'detective': 9648, 'whodunit': 9648,
+    'family': 10751, 'kids': 10751, 'children': 10751,
+    'fantasy': 14, 'magic': 14, 'magical': 14, 'dragons': 14,
+    'crime': 80, 'gangster': 80, 'mafia': 80, 'heist': 80,
+    'war': 10752, 'military': 10752, 'battle': 10752,
+    'western': 37, 'cowboy': 37, 'wild west': 37,
+    'history': 36, 'historical': 36, 'period': 36,
+    'music': 10402, 'musical': 10402,
+    'documentary': 99, 'true story': 99,
+}
+
+_NL_SORT = {
+    'popular': 'popularity.desc', 'trending': 'popularity.desc', 'hot': 'popularity.desc',
+    'top rated': 'vote_average.desc', 'best': 'vote_average.desc', 'highest rated': 'vote_average.desc',
+    'newest': 'primary_release_date.desc', 'recent': 'primary_release_date.desc', 'latest': 'primary_release_date.desc',
+    'oldest': 'primary_release_date.asc',
+}
+
+_NL_RATING = {
+    'masterpiece': 8.5, 'excellent': 8.0, 'great': 7.5, 'good': 7.0, 'decent': 6.5,
+}
+
+
+def parse_natural_query(text):
+    q = text.lower()
+    genres, vote_gte, sort_by, year_gte, year_lte = [], None, 'popularity.desc', None, None
+
+    for keyword, gid in _NL_GENRES.items():
+        if keyword in q and gid not in genres:
+            genres.append(gid)
+
+    # Decade: "80s", "1990s", "the 90s"
+    decade_match = re.search(r'\b(1[0-9]{3}|[0-9]{2})s\b', q)
+    if decade_match:
+        raw = decade_match.group(1)
+        if len(raw) == 2:
+            n = int(raw)
+            base = 2000 if n <= 20 else 1900
+            decade_start = base + (n // 10) * 10
+        else:
+            decade_start = int(raw) // 10 * 10
+        year_gte, year_lte = decade_start, decade_start + 9
+
+    current_year = datetime.date.today().year
+    if re.search(r'\b(this year|new releases?|just released)\b', q):
+        year_gte = current_year - 1
+    elif re.search(r'\bclassic\b', q) and not year_gte:
+        year_lte = 2000
+        sort_by = 'vote_average.desc'
+    elif re.search(r'\bvery old\b', q) and not year_gte:
+        year_lte = 1980
+
+    for kw, rating in _NL_RATING.items():
+        if kw in q:
+            vote_gte = max(vote_gte or 0, rating)
+
+    for kw, srt in _NL_SORT.items():
+        if kw in q:
+            sort_by = srt
+            break
+
+    return {
+        'genres': genres[:2],
+        'year_gte': year_gte,
+        'year_lte': year_lte,
+        'vote_gte': vote_gte,
+        'sort_by': sort_by,
+    }
+
+
+@st.cache_data(ttl=3600)
+def smart_discover(genres_tuple, year_gte, year_lte, vote_gte, sort_by):
+    api_key = st.secrets["TMDB_API_KEY"]
+    params = {
+        'api_key': api_key,
+        'sort_by': sort_by,
+        'vote_count.gte': 100,
+        'language': 'en-US',
+    }
+    if genres_tuple:
+        params['with_genres'] = ','.join(str(g) for g in genres_tuple)
+    if year_gte:
+        params['primary_release_date.gte'] = f'{year_gte}-01-01'
+    if year_lte:
+        params['primary_release_date.lte'] = f'{year_lte}-12-31'
+    if vote_gte:
+        params['vote_average.gte'] = vote_gte
+    try:
+        r = requests.get('https://api.themoviedb.org/3/discover/movie', params=params, timeout=5)
+        return [
+            {'id': m['id'], 'title': m['title'], 'poster': get_safe_poster(m.get('poster_path')),
+             'rating': round(m.get('vote_average', 0), 1), 'overview': m.get('overview', ''),
+             'year': m.get('release_date', '')[:4]}
+            for m in r.json().get('results', [])[:10]
+        ]
+    except:
+        return []
+
 
 @st.cache_data(ttl=86400)
 def fetch_providers_list(region='PL'):
@@ -944,14 +1055,73 @@ with tab1:
 
 # TAB 2 — SEARCH
 with tab2:
-    stype = st.radio("Search for:", ["🎬 Movies", "📺 TV Shows", "🎭 People (Actors & Directors)"], horizontal=True)
+    stype = st.radio("Search for:", ["🎬 Movies", "📺 TV Shows", "🎭 People (Actors & Directors)", "🧠 Describe It"], horizontal=True)
     is_tv = stype == "📺 TV Shows"
     is_people = stype == "🎭 People (Actors & Directors)"
+    is_nl = stype == "🧠 Describe It"
+
+    if is_nl:
+        st.markdown("**Describe what you feel like watching** — in plain words:")
+        st.caption("Try: *scary movie from the 90s* · *great comedy for the family* · *best sci-fi classic* · *romantic thriller*")
+        nl_query = st.text_input(
+            "Describe",
+            placeholder="e.g. funny animated movie for kids, scary horror from the 80s, best romantic comedy...",
+            label_visibility="collapsed",
+            key="nl_q",
+        )
+        if nl_query:
+            parsed = parse_natural_query(nl_query)
+            detected = []
+            genre_id_to_name = {v: k.title() for k, v in _NL_GENRES.items()}
+            for gid in parsed['genres']:
+                detected.append(f"**Genre:** {genre_id_to_name.get(gid, str(gid))}")
+            if parsed['year_gte'] or parsed['year_lte']:
+                gte = parsed['year_gte'] or '...'
+                lte = parsed['year_lte'] or '...'
+                detected.append(f"**Year:** {gte}–{lte}")
+            if parsed['vote_gte']:
+                detected.append(f"**Min rating:** {parsed['vote_gte']}")
+            sort_labels = {v: k.title() for k, v in _NL_SORT.items()}
+            detected.append(f"**Sort:** {sort_labels.get(parsed['sort_by'], parsed['sort_by'])}")
+            if detected:
+                st.info("Detected: " + "  ·  ".join(detected))
+
+            if not parsed['genres'] and not parsed['year_gte'] and not parsed['year_lte'] and not parsed['vote_gte']:
+                st.warning("No specific filters detected — showing popular results. Try adding a genre like *horror*, *comedy*, *romantic*, etc.")
+
+            with st.spinner("Searching..."):
+                nl_results = smart_discover(
+                    tuple(parsed['genres']),
+                    parsed['year_gte'],
+                    parsed['year_lte'],
+                    parsed['vote_gte'],
+                    parsed['sort_by'],
+                )
+            if not nl_results:
+                st.markdown('<div style="text-align:center;padding:30px;color:#555;"><div style="font-size:2rem;">🔍</div><div>No results found. Try different words.</div></div>', unsafe_allow_html=True)
+            else:
+                for rs in [0, 5]:
+                    row = nl_results[rs:rs + 5]
+                    if not row:
+                        break
+                    cols = st.columns(5)
+                    for i, m in enumerate(row):
+                        with cols[i]:
+                            st.markdown(poster_html(m['poster'], m['rating'], m['rating'] >= 8.0, m.get('year')), unsafe_allow_html=True)
+                            st.markdown(f"**{m['title']}**")
+                            if st.button("ℹ️ Details", key=f"nl_d_{rs}_{m['id']}", use_container_width=True):
+                                show_movie_details(m['id'], m['title'], m['poster'], m['rating'], m['overview'])
+                            if st.button("🎬 Similar", key=f"nl_s_{rs}_{m['id']}", use_container_width=True):
+                                with st.spinner("Loading..."):
+                                    set_recommendations(more_like_this(m['id'], m['title']), m['title'])
+                                st.rerun()
+                            st.link_button("Watch 📺", f"https://www.justwatch.com/pl/search?q={urllib.parse.quote(m['title'])}", use_container_width=True)
 
     ph = {"🎬 Movies": "e.g. Dune, Oppenheimer...", "📺 TV Shows": "e.g. Breaking Bad, The Bear...", "🎭 People (Actors & Directors)": "e.g. Christopher Nolan, Meryl Streep..."}
-    q2 = st.text_input("Search", placeholder=ph[stype], label_visibility="collapsed", key="tab2q")
+    if not is_nl:
+        q2 = st.text_input("Search", placeholder=ph[stype], label_visibility="collapsed", key="tab2q")
 
-    if q2:
+    if not is_nl and q2:
         if is_people:
             with st.spinner("Searching..."):
                 persons = search_person(q2)
