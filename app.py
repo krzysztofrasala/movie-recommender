@@ -5,13 +5,20 @@ import requests
 import urllib.parse
 import ast
 import datetime
+import json
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 # ── SESSION STATE ──────────────────────────────────────────────────────────────
+WATCHLIST_FILE = Path('.watchlist.json')
+
 if 'trending_index' not in st.session_state:
     st.session_state.trending_index = 0
 if 'watchlist' not in st.session_state:
-    st.session_state.watchlist = []
+    try:
+        st.session_state.watchlist = json.loads(WATCHLIST_FILE.read_text()) if WATCHLIST_FILE.exists() else []
+    except Exception:
+        st.session_state.watchlist = []
 if 'recommendations' not in st.session_state:
     st.session_state.recommendations = []
 if 'rec_source' not in st.session_state:
@@ -41,7 +48,7 @@ DECADES = {
 def get_safe_poster(path):
     if path and isinstance(path, str):
         return "https://image.tmdb.org/t/p/w500" + path
-    return "https://via.placeholder.com/500x750/1a1a1a/666666?text=No+Poster"
+    return "https://placehold.co/500x750/1a1a1a/666666?text=No+Poster"
 
 def parse_genres(genres_str):
     try:
@@ -84,20 +91,24 @@ def genre_chips_html(genres):
     return f'<div style="margin:4px 0 8px 0;overflow:hidden;">{chips}</div>'
 
 def get_local_genres(title):
-    match = movies[movies['title'] == title]
-    if not match.empty:
-        g = match.iloc[0].get('genres_list', [])
-        return g[:3] if isinstance(g, list) else []
-    return []
+    return _genre_lookup.get(title, [])
+
+def _save_watchlist():
+    try:
+        WATCHLIST_FILE.write_text(json.dumps(st.session_state.watchlist))
+    except Exception:
+        pass
 
 def add_to_watchlist(title, poster, rating):
     if not any(m['title'] == title for m in st.session_state.watchlist):
         st.session_state.watchlist.append({'title': title, 'poster': poster, 'rating': rating})
+        _save_watchlist()
         return True
     return False
 
 def remove_from_watchlist(title):
     st.session_state.watchlist = [m for m in st.session_state.watchlist if m['title'] != title]
+    _save_watchlist()
 
 def set_recommendations(recs, source_title):
     st.session_state.recommendations = recs
@@ -338,6 +349,19 @@ try:
 except:
     st.error("Model files not found!")
     st.stop()
+
+_genre_lookup = {
+    row['title']: (row['genres_list'][:3] if isinstance(row.get('genres_list'), list) else [])
+    for _, row in movies.iterrows()
+}
+
+@st.cache_data
+def apply_filters(genres_tuple, year_min, year_max):
+    df = movies.copy()
+    if genres_tuple:
+        df = df[df['genres_list'].apply(lambda g: isinstance(g, list) and any(x in g for x in genres_tuple))]
+    df = df[df['year'].notna() & (df['year'] >= year_min) & (df['year'] <= year_max)]
+    return df
 
 # ── RECOMMENDATION LOGIC ───────────────────────────────────────────────────────
 def recommend(movie):
@@ -727,10 +751,7 @@ with st.sidebar:
             st.markdown(f'<div style="display:flex;align-items:center;gap:8px;margin:4px 0;"><img src="{info["poster"]}" style="width:28px;height:42px;border-radius:4px;object-fit:cover;"><div><div style="font-size:0.72rem;font-weight:600;color:#ddd;">{info["title"]}</div><div style="color:{rc};font-size:0.68rem;">{"★"*(r+1)}{"☆"*(4-r)}</div></div></div>', unsafe_allow_html=True)
 
 # ── FILTERS ────────────────────────────────────────────────────────────────────
-filtered = movies.copy()
-if selected_genres:
-    filtered = filtered[filtered['genres_list'].apply(lambda g: isinstance(g, list) and any(x in g for x in selected_genres))]
-filtered = filtered[filtered['year'].notna() & (filtered['year'] >= year_range[0]) & (filtered['year'] <= year_range[1])]
+filtered = apply_filters(tuple(selected_genres), year_range[0], year_range[1])
 
 # ── FILM OF THE DAY ────────────────────────────────────────────────────────────
 motd = get_movie_of_the_day()
