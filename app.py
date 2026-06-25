@@ -9,6 +9,7 @@ import json
 import re
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+import plotly.graph_objects as go
 
 # ── SESSION STATE ──────────────────────────────────────────────────────────────
 WATCHLIST_FILE = Path('.watchlist.json')
@@ -452,6 +453,94 @@ def smart_discover(genres_tuple, year_gte, year_lte, vote_gte, sort_by):
         return []
 
 
+# ── TASTE DNA ──────────────────────────────────────────────────────────────────
+_PERSONAS = [
+    (['Horror', 'Thriller'],         ('🌑', 'The Dark Mind',         'You thrive in psychological tension and shadowy narratives.')),
+    (['Action', 'Thriller'],         ('🎯', 'The Adrenaline Hunter',  'Nothing gets your blood pumping like high-octane cinema.')),
+    (['Drama', 'Romance'],           ('🌹', 'The Hopeless Romantic',  'You believe every great story deserves a love at its center.')),
+    (['Science Fiction', 'Action'],  ('🚀', 'The Future Voyager',     'You boldly go where no film has gone before.')),
+    (['Crime', 'Drama'],             ('🕵️', 'The Truth Seeker',       'Obsessed with the human cost of decisions — right or wrong.')),
+    (['Animation', 'Family'],        ('🎠', 'The Eternal Child',      'Young at heart, and that will never change.')),
+    (['Comedy'],                     ('😂', 'The Laughter Seeker',    "Life's too short to take too seriously.")),
+    (['Science Fiction'],            ('🛸', 'The Visionary',          'Fascinated by what could be, not just what is.')),
+    (['Horror'],                     ('👻', 'The Thrill Chaser',      'Fear is just excitement in disguise.')),
+    (['Action', 'Adventure'],        ('💥', 'The Epic Action Fan',    'Bigger, louder, faster — bring it on.')),
+    (['History', 'Drama'],           ('📜', 'The Time Traveler',      'Finds the present by exploring the past.')),
+    (['Adventure', 'Fantasy'],       ('⚔️', 'The Epic Dreamer',       'Born for grand journeys and impossible worlds.')),
+    (['Drama'],                      ('🎭', 'The Deep Thinker',       'Every film is a window into the human condition.')),
+]
+
+_GENRE_TO_NL_ID = {name: gid for name, gid in {
+    'Action': 28, 'Adventure': 12, 'Animation': 16, 'Comedy': 35,
+    'Crime': 80, 'Drama': 18, 'Family': 10751, 'Fantasy': 14,
+    'History': 36, 'Horror': 27, 'Music': 10402, 'Mystery': 9648,
+    'Romance': 10749, 'Science Fiction': 878, 'Thriller': 53,
+    'War': 10752, 'Western': 37,
+}.items()}
+
+
+def get_taste_profile():
+    genre_scores = {}
+    decade_scores = {}
+
+    for movie_id, info in st.session_state.rated_movies_info.items():
+        stars = st.session_state.user_ratings.get(movie_id, 2) + 1
+        weight = stars / 3.0
+        for g in get_local_genres(info['title']):
+            genre_scores[g] = genre_scores.get(g, 0) + weight
+        local = movies[movies['title'].str.lower() == info['title'].lower()]
+        if not local.empty:
+            yr = local.iloc[0].get('year')
+            if pd.notna(yr):
+                decade = (int(yr) // 10) * 10
+                decade_scores[decade] = decade_scores.get(decade, 0) + weight
+
+    for item in st.session_state.watchlist:
+        for g in get_local_genres(item['title']):
+            genre_scores[g] = genre_scores.get(g, 0) + 0.4
+
+    return genre_scores, decade_scores
+
+
+def assign_persona(genre_scores):
+    if not genre_scores:
+        return None
+    top = sorted(genre_scores, key=genre_scores.get, reverse=True)[:3]
+    for genres, persona in _PERSONAS:
+        if all(g in top for g in genres):
+            return persona
+    for genres, persona in _PERSONAS:
+        if genres[0] in top:
+            return persona
+    return ('🎬', 'The Movie Lover', 'A true cinephile with eclectic taste.')
+
+
+@st.cache_data(ttl=3600)
+def fetch_hidden_gems(genre_id, exclude_ids_tuple):
+    api_key = st.secrets["TMDB_API_KEY"]
+    params = {
+        'api_key': api_key,
+        'sort_by': 'vote_average.desc',
+        'vote_count.gte': 50,
+        'vote_count.lte': 900,
+        'vote_average.gte': 7.2,
+        'language': 'en-US',
+    }
+    if genre_id:
+        params['with_genres'] = genre_id
+    try:
+        r = requests.get('https://api.themoviedb.org/3/discover/movie', params=params, timeout=5)
+        exclude = set(exclude_ids_tuple)
+        return [
+            {'id': m['id'], 'title': m['title'], 'poster': get_safe_poster(m.get('poster_path')),
+             'rating': round(m.get('vote_average', 0), 1), 'overview': m.get('overview', ''),
+             'year': m.get('release_date', '')[:4]}
+            for m in r.json().get('results', []) if m['id'] not in exclude
+        ][:5]
+    except:
+        return []
+
+
 @st.cache_data(ttl=86400)
 def fetch_providers_list(region='PL'):
     api_key = st.secrets["TMDB_API_KEY"]
@@ -696,8 +785,16 @@ def render_recommendations(recs, active_provider_ids=None):
 
 def render_movie_row(movie_list, key_prefix, active_provider_ids=None):
     providers_map = fetch_providers_batch([m['id'] for m in movie_list]) if active_provider_ids else {}
-    cols = st.columns(5)
-    for idx, m in enumerate(movie_list):
+    if active_provider_ids:
+        movie_list = [m for m in movie_list if any(
+            p['id'] in active_provider_ids for p in providers_map.get(m.get('id'), [])
+        )]
+        if not movie_list:
+            st.info("No movies found on the selected streaming platforms.")
+            return
+    n = min(5, len(movie_list))
+    cols = st.columns(n)
+    for idx, m in enumerate(movie_list[:5]):
         m_id = m.get('id')
         m_title = m.get('title', m.get('name', ''))
         m_poster = get_safe_poster(m.get('poster_path'))
@@ -1007,7 +1104,7 @@ if st.session_state.recommendations:
     st.markdown("---")
 
 # ── TABS ───────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs(["📽️ My Library", "🔍 Search Movies, TV & People", "🏆 Top 10", "⚖️ Compare"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📽️ My Library", "🔍 Search Movies, TV & People", "🏆 Top 10", "⚖️ Compare", "🧬 Taste DNA"])
 
 # TAB 1 — MY LIBRARY
 with tab1:
@@ -1276,6 +1373,132 @@ with tab4:
                     st.info(f"Common genres: **{', '.join(common_genres)}**")
                 if common_cast:
                     st.info(f"Same actors: **{', '.join(common_cast)}**")
+
+# TAB 5 — TASTE DNA
+with tab5:
+    genre_scores, decade_scores = get_taste_profile()
+    total_rated = len(st.session_state.rated_movies_info)
+    total_wl = len(st.session_state.watchlist)
+
+    if not genre_scores and not decade_scores:
+        st.markdown("""
+        <div style="text-align:center;padding:60px 20px;">
+            <div style="font-size:4rem;">🧬</div>
+            <div style="font-size:1.4rem;font-weight:700;color:#F5C518;margin:16px 0 8px;">Your Taste DNA is empty</div>
+            <div style="color:#666;font-size:0.95rem;">Rate some movies or add them to your watchlist<br>and come back to see your unique cinematic profile.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        persona = assign_persona(genre_scores)
+        if persona:
+            emoji, name, desc = persona
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid #F5C518;border-radius:16px;padding:28px 36px;margin-bottom:24px;display:flex;align-items:center;gap:24px;">
+                <div style="font-size:3.5rem;line-height:1;">{emoji}</div>
+                <div>
+                    <div style="color:#888;font-size:0.7rem;font-weight:700;letter-spacing:3px;margin-bottom:4px;">YOUR MOVIE PERSONA</div>
+                    <div style="color:#F5C518;font-size:1.8rem;font-weight:800;margin-bottom:4px;">{name}</div>
+                    <div style="color:#aaa;font-size:0.92rem;">{desc}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        col_left, col_right = st.columns([3, 2])
+
+        with col_left:
+            if genre_scores:
+                st.subheader("🎭 Genre DNA")
+                top_genres = sorted(genre_scores.items(), key=lambda x: x[1], reverse=True)[:8]
+                labels = [g for g, _ in top_genres]
+                values = [v for _, v in top_genres]
+                max_val = max(values) if values else 1
+                norm = [v / max_val for v in values]
+
+                fig_radar = go.Figure(go.Scatterpolar(
+                    r=norm + [norm[0]],
+                    theta=labels + [labels[0]],
+                    fill='toself',
+                    fillcolor='rgba(245,197,24,0.15)',
+                    line=dict(color='#F5C518', width=2),
+                    marker=dict(color='#F5C518', size=6),
+                ))
+                fig_radar.update_layout(
+                    polar=dict(
+                        bgcolor='#111',
+                        radialaxis=dict(visible=False, range=[0, 1]),
+                        angularaxis=dict(color='#666', gridcolor='#222'),
+                    ),
+                    paper_bgcolor='#0d0d0d',
+                    plot_bgcolor='#0d0d0d',
+                    margin=dict(t=20, b=20, l=40, r=40),
+                    height=340,
+                    showlegend=False,
+                )
+                st.plotly_chart(fig_radar, use_container_width=True)
+
+        with col_right:
+            if decade_scores:
+                st.subheader("📅 Era Preference")
+                decades_sorted = sorted(decade_scores.items())
+                decade_labels = [f"{d}s" for d, _ in decades_sorted]
+                decade_vals = [v for _, v in decades_sorted]
+
+                fig_bar = go.Figure(go.Bar(
+                    x=decade_labels,
+                    y=decade_vals,
+                    marker=dict(
+                        color=decade_vals,
+                        colorscale=[[0, '#1a1a1a'], [0.5, '#b8860b'], [1, '#F5C518']],
+                        line=dict(color='#333', width=1),
+                    ),
+                    text=[f"{v:.1f}" for v in decade_vals],
+                    textposition='outside',
+                    textfont=dict(color='#888', size=11),
+                ))
+                fig_bar.update_layout(
+                    paper_bgcolor='#0d0d0d',
+                    plot_bgcolor='#0d0d0d',
+                    xaxis=dict(color='#666', gridcolor='#1a1a1a', tickfont=dict(color='#aaa')),
+                    yaxis=dict(visible=False),
+                    margin=dict(t=20, b=10, l=10, r=10),
+                    height=280,
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+
+            st.markdown("---")
+            mc1, mc2, mc3 = st.columns(3)
+            mc1.metric("Rated", total_rated)
+            mc2.metric("Watchlist", total_wl)
+            if total_rated > 0:
+                avg_raw = sum(st.session_state.user_ratings.values()) / total_rated
+                mc3.metric("Avg Stars", f"{'★' * round(avg_raw + 1)}"[:5])
+
+        st.markdown("---")
+        st.subheader("💎 Hidden Gems for You")
+        st.caption("High-quality films that flew under the radar — matched to your taste")
+
+        top_genre_name = sorted(genre_scores, key=genre_scores.get, reverse=True)[0] if genre_scores else None
+        top_genre_id = _GENRE_TO_NL_ID.get(top_genre_name) if top_genre_name else None
+        exclude_ids = tuple(int(mid) for mid in st.session_state.rated_movies_info)
+
+        with st.spinner("Finding hidden gems..."):
+            gems = fetch_hidden_gems(top_genre_id, exclude_ids)
+
+        if gems:
+            cols = st.columns(5)
+            for i, m in enumerate(gems):
+                with cols[i]:
+                    st.markdown(poster_html(m['poster'], m['rating'], False, m.get('year')), unsafe_allow_html=True)
+                    st.markdown(f"**{m['title']}**")
+                    st.caption(f"⭐ {m['rating']} · {m.get('year', '')}")
+                    if st.button("ℹ️ Details", key=f"gem_d_{m['id']}", use_container_width=True):
+                        show_movie_details(m['id'], m['title'], m['poster'], m['rating'], m['overview'])
+                    if st.button("🎬 Similar", key=f"gem_s_{m['id']}", use_container_width=True):
+                        with st.spinner("Loading..."):
+                            set_recommendations(more_like_this(m['id'], m['title']), m['title'])
+                        st.rerun()
+        else:
+            st.info("Rate a few movies first to get personalized Hidden Gems.")
 
 # ── FOOTER ─────────────────────────────────────────────────────────────────────
 st.markdown("---")
