@@ -607,7 +607,7 @@ def render_movie_row(movie_list, key_prefix, active_provider_ids=None):
             st.link_button("Watch 📺", f"https://www.justwatch.com/pl/search?q={urllib.parse.quote(m_title)}", use_container_width=True)
 
 # ── PAGE CONFIG & CSS ──────────────────────────────────────────────────────────
-st.set_page_config(page_title="CineScope", layout="wide", page_icon="🎬")
+st.set_page_config(page_title="CineScope", layout="wide", page_icon="🎬", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
