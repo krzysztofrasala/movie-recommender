@@ -3,4 +3,6 @@ __pycache__/
 .ipynb_checkpoints/
 *.code-workspace
 .vscode/
+.claude/
 .streamlit/secrets.toml
+.watchlist.json
