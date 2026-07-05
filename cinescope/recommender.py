@@ -15,10 +15,9 @@ MIN_STARS_FOR_PROFILE = 3  # st.feedback stars are 0-4; >=3 means a 4-5 star rat
 def recommend(title: str) -> list[dict]:
     """Top-N most similar local movies to ``title``, enriched with TMDB details."""
     movies = data.get_movies()
-    similarity = data.get_similarity()
+    neighbor_indices = data.get_neighbors()["indices"]
     idx = movies[movies["title"] == title].index[0]
-    top = sorted(enumerate(similarity[idx]), reverse=True, key=lambda x: x[1])[1:TOP_N + 1]
-    candidates = [(movies.iloc[i].movie_id, movies.iloc[i].title) for i, _ in top]
+    candidates = [(movies.iloc[i].movie_id, movies.iloc[i].title) for i in neighbor_indices[idx][:TOP_N]]
 
     def fetch_one(candidate: tuple) -> dict | None:
         movie_id, movie_title = candidate

@@ -1,14 +1,23 @@
-"""
-Fetches top movies from TMDB API and rebuilds the recommendation model.
-Usage: python fetch_dataset.py
+"""Fetches top movies from TMDB API and rebuilds the recommendation model.
+
+Outputs:
+  movie_dict.pkl — movie ids, titles and tag strings
+  neighbors.pkl  — top-K most similar movies per title (precomputed)
+  vectors.npz    — sparse tag count-vectors for on-demand pair similarity
+  movies.csv     — release dates & genres used by the app's filters
+
+Usage: TMDB_API_KEY="your_key" python fetch_dataset.py
 """
 
 import os
-import requests
-import pandas as pd
 import pickle
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import numpy as np
+import pandas as pd
+import requests
+from scipy import sparse
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -16,20 +25,22 @@ API_KEY = os.environ.get("TMDB_API_KEY")
 if not API_KEY:
     raise ValueError("Set TMDB_API_KEY environment variable before running this script.")
 BASE = "https://api.themoviedb.org/3"
-MAX_PAGES = 200  # 20 movies/page → up to 4000 movies (keeps similarity.pkl < 100MB)
+MAX_PAGES = 200  # 20 movies/page → up to 4000 movies
+TOP_K = 20  # neighbors kept per movie; the app shows the best 10
 
 
-def get(url, params={}):
-    params["api_key"] = API_KEY
-    for attempt in range(3):
+def get(url, params=None):
+    payload = dict(params or {})
+    payload["api_key"] = API_KEY
+    for _ in range(3):
         try:
-            r = requests.get(url, params=params, timeout=10)
+            r = requests.get(url, params=payload, timeout=10)
             if r.status_code == 429:
                 time.sleep(2)
                 continue
             r.raise_for_status()
             return r.json()
-        except Exception:
+        except requests.RequestException:
             time.sleep(1)
     return None
 
@@ -74,6 +85,23 @@ def fetch_details(movie_id):
     }
 
 
+def build_neighbors(similarity_matrix, top_k):
+    """Reduce a full N×N similarity matrix to each row's top-k neighbors.
+
+    Keeping only the neighbors the app can ever show makes the model file
+    ~100x smaller than the full matrix without changing any recommendation.
+    """
+    n = similarity_matrix.shape[0]
+    order = np.argsort(-similarity_matrix, axis=1, kind="stable")
+    indices = np.empty((n, top_k), dtype=np.int32)
+    scores = np.empty((n, top_k), dtype=np.float32)
+    for i in range(n):
+        row = order[i][order[i] != i][:top_k]
+        indices[i] = row
+        scores[i] = similarity_matrix[i, row]
+    return {"indices": indices, "scores": scores}
+
+
 def main():
     print("Step 1: Fetching movie IDs from TMDB...")
     ids = fetch_movie_ids()
@@ -99,17 +127,21 @@ def main():
     df = df[df["tags"].str.strip() != ""].reset_index(drop=True)
     print(f"  After dedup/cleanup: {df.shape[0]} movies")
 
-    print("Step 3: Building similarity matrix...")
+    print("Step 3: Building similarity model...")
     cv = CountVectorizer(max_features=5000, stop_words="english")
-    vectors = cv.fit_transform(df["tags"]).toarray()
-    sim = cosine_similarity(vectors).astype("float32")  # float32 halves file size vs float64
+    vectors = cv.fit_transform(df["tags"])
+    similarity_matrix = cosine_similarity(vectors).astype("float32")
+    neighbors = build_neighbors(similarity_matrix, TOP_K)
 
     print("Step 4: Saving model files...")
     model_df = df[["movie_id", "title", "tags"]]
-    pickle.dump(model_df.to_dict(), open("movie_dict.pkl", "wb"))
-    pickle.dump(sim, open("similarity.pkl", "wb"))
+    with open("movie_dict.pkl", "wb") as f:
+        pickle.dump(model_df.to_dict(), f)
+    with open("neighbors.pkl", "wb") as f:
+        pickle.dump(neighbors, f)
+    sparse.save_npz("vectors.npz", vectors.astype(np.int32))
 
-    # Save a minimal movies.csv so app.py can read release_date and genres
+    # Save a minimal movies.csv so the app can read release_date and genres
     csv_df = df[["movie_id", "title", "release_date", "genres"]].rename(columns={"movie_id": "id"})
     csv_df.to_csv("movies.csv", index=False)
 

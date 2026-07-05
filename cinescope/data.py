@@ -5,11 +5,14 @@ from __future__ import annotations
 import ast
 import pickle
 
+import numpy as np
 import pandas as pd
 import streamlit as st
+from scipy import sparse
 
 MOVIE_DICT_FILE = "movie_dict.pkl"
-SIMILARITY_FILE = "similarity.pkl"
+NEIGHBORS_FILE = "neighbors.pkl"
+VECTORS_FILE = "vectors.npz"
 MOVIES_CSV_FILE = "movies.csv"
 
 
@@ -27,12 +30,13 @@ def parse_genres(genres_str) -> list[str]:
 
 @st.cache_resource
 def load_model():
-    """Load the movie dataframe and similarity matrix built by fetch_dataset.py."""
+    """Load the movie dataframe, neighbor lists and tag vectors built by fetch_dataset.py."""
     try:
         with open(MOVIE_DICT_FILE, "rb") as f:
             movies = pd.DataFrame(pickle.load(f))
-        with open(SIMILARITY_FILE, "rb") as f:
-            similarity = pickle.load(f)
+        with open(NEIGHBORS_FILE, "rb") as f:
+            neighbors = pickle.load(f)
+        vectors = sparse.load_npz(VECTORS_FILE)
         raw = pd.read_csv(MOVIES_CSV_FILE)[["id", "genres", "release_date"]]
     except Exception as exc:
         raise ModelLoadError(str(exc)) from exc
@@ -41,15 +45,26 @@ def load_model():
     raw["genres_list"] = raw["genres"].apply(parse_genres)
     raw = raw.rename(columns={"id": "movie_id"})
     movies = movies.merge(raw[["movie_id", "year", "genres_list"]], on="movie_id", how="left")
-    return movies, similarity
+    return movies, neighbors, vectors
 
 
 def get_movies() -> pd.DataFrame:
     return load_model()[0]
 
 
-def get_similarity():
+def get_neighbors() -> dict[str, np.ndarray]:
+    """Precomputed top-K similar movies: {'indices': (N, K) int32, 'scores': (N, K) float32}."""
     return load_model()[1]
+
+
+def pair_similarity(idx1: int, idx2: int) -> float:
+    """Cosine similarity between two movies' tag vectors (0..1), computed on demand."""
+    vectors = load_model()[2]
+    v1, v2 = vectors[idx1], vectors[idx2]
+    denom = float(np.sqrt(v1.multiply(v1).sum()) * np.sqrt(v2.multiply(v2).sum()))
+    if denom == 0.0:
+        return 0.0
+    return float(v1.multiply(v2).sum()) / denom
 
 
 @st.cache_resource

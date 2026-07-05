@@ -11,7 +11,6 @@ from cinescope.ui.html import format_runtime, genre_chips_html, poster_html, rat
 def render() -> None:
     st.caption("Pick two movies to compare side by side.")
     movies = data.get_movies()
-    similarity = data.get_similarity()
 
     col1, col2 = st.columns(2)
     with col1:
@@ -32,7 +31,7 @@ def render() -> None:
 
     idx1 = movies[movies["title"] == movie1].index[0]
     idx2 = movies[movies["title"] == movie2].index[0]
-    score = round(float(similarity[idx1][idx2]) * 100, 1)
+    score = round(data.pair_similarity(idx1, idx2) * 100, 1)
     score_color = rating_color(score / 10)
     st.markdown(
         f'<div style="text-align:center;padding:20px;">'
