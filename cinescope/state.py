@@ -1,29 +1,61 @@
-"""Session-state initialisation and user data (watchlist, ratings, history)."""
+"""Session-state initialisation and user data (watchlist, ratings, history).
+
+The watchlist is per-visitor: it lives in ``st.session_state`` during a
+session and is persisted to the browser's localStorage so it survives
+page reloads. Nothing is written server-side, so visitors never share
+each other's data — unlike a single JSON file on the server would.
+"""
 
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import streamlit as st
+from streamlit_local_storage import LocalStorage
 
-WATCHLIST_FILE = Path(".watchlist.json")
 MAX_SEARCH_HISTORY = 10
+
+# localStorage integration keys.
+_LS_COMPONENT_KEY = "cinescope_local_storage"
+_WATCHLIST_ITEM = "cinescope_watchlist"
+
+
+def _local_storage() -> LocalStorage:
+    """Handle to the visitor's browser localStorage (mounted once per session)."""
+    return LocalStorage(key=_LS_COMPONENT_KEY)
 
 
 def _load_watchlist() -> list[dict]:
-    if not WATCHLIST_FILE.exists():
-        return []
+    """Read the watchlist from the visitor's browser localStorage."""
     try:
-        return json.loads(WATCHLIST_FILE.read_text())
-    except (OSError, json.JSONDecodeError):
+        raw = _local_storage().getItem(_WATCHLIST_ITEM)
+    except Exception:
+        return []
+    if not raw:
+        return []
+    if isinstance(raw, list):
+        return raw
+    try:
+        return json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
         return []
 
 
-def _save_watchlist() -> None:
+def persist_watchlist() -> None:
+    """Write the watchlist to localStorage if it changed since the last write.
+
+    Must be called from the main script body (not from a button handler that
+    triggers ``st.rerun()``): the localStorage component only runs its browser
+    write when it is present in the run that is actually rendered, so a
+    component mounted right before a rerun would be torn down before it fires.
+    """
+    signature = json.dumps(st.session_state.watchlist)
+    if st.session_state.get("_watchlist_signature") == signature:
+        return
     try:
-        WATCHLIST_FILE.write_text(json.dumps(st.session_state.watchlist))
-    except OSError:
+        _local_storage().setItem(_WATCHLIST_ITEM, signature, key="ls_set_watchlist")
+        st.session_state._watchlist_signature = signature
+    except Exception:
         pass  # persistence is best-effort; the in-memory copy stays valid
 
 
@@ -51,13 +83,11 @@ def add_to_watchlist(title: str, poster: str, rating: float) -> bool:
     if any(m["title"] == title for m in st.session_state.watchlist):
         return False
     st.session_state.watchlist.append({"title": title, "poster": poster, "rating": rating})
-    _save_watchlist()
     return True
 
 
 def remove_from_watchlist(title: str) -> None:
     st.session_state.watchlist = [m for m in st.session_state.watchlist if m["title"] != title]
-    _save_watchlist()
 
 
 def set_recommendations(recs: list[dict], source_title: str) -> None:

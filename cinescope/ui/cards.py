@@ -11,8 +11,13 @@ from cinescope.ui.dialogs import show_movie_details
 from cinescope.ui.html import genre_chips_html, justwatch_url, poster_html, provider_logos_html
 
 
-def render_rec_card(col, item: dict, providers: list[dict] | None = None) -> None:
-    """Full recommendation card: poster, genres, actions, watchlist and rating."""
+def render_rec_card(col, item: dict, providers: list[dict] | None = None, section: str = "rec") -> None:
+    """Full recommendation card: poster, genres, actions, watchlist and rating.
+
+    ``section`` namespaces the widget keys so the same movie can appear in
+    two sections on one page (e.g. "For You" and "Similar to") without a
+    Streamlit duplicate-key crash.
+    """
     with col:
         genres = get_local_genres(item["title"])
         st.markdown(poster_html(item["poster"], item["rating"], item["rating"] >= 8.0), unsafe_allow_html=True)
@@ -22,27 +27,27 @@ def render_rec_card(col, item: dict, providers: list[dict] | None = None) -> Non
         if providers:
             st.markdown(provider_logos_html(providers), unsafe_allow_html=True)
 
-        if st.button("ℹ️ Details", key=f"rd_{item['id']}", use_container_width=True):
+        if st.button("ℹ️ Details", key=f"{section}_rd_{item['id']}", use_container_width=True):
             show_movie_details(item["id"], item["title"], item["poster"], item["rating"], item["overview"])
         st.link_button("Watch 📺", justwatch_url(item["title"]), use_container_width=True)
 
         in_watchlist = any(m["title"] == item["title"] for m in st.session_state.watchlist)
         if in_watchlist:
-            st.button("❤️ In Watchlist", key=f"wl_{item['id']}", disabled=True, use_container_width=True)
+            st.button("❤️ In Watchlist", key=f"{section}_wl_{item['id']}", disabled=True, use_container_width=True)
         else:
-            if st.button("🤍 Add to Watchlist", key=f"wl_{item['id']}", use_container_width=True):
+            if st.button("🤍 Add to Watchlist", key=f"{section}_wl_{item['id']}", use_container_width=True):
                 if state.add_to_watchlist(item["title"], item["poster"], item["rating"]):
                     st.toast(f"❤️ **{item['title']}** added to watchlist!")
                 st.rerun()
 
         saved = st.session_state.user_ratings.get(item["id"])
-        new_rating = st.feedback("stars", key=f"fb_{item['id']}")
+        new_rating = st.feedback("stars", key=f"{section}_fb_{item['id']}")
         if new_rating is not None and new_rating != saved:
             st.session_state.user_ratings[item["id"]] = new_rating
             st.session_state.rated_movies_info[item["id"]] = {"title": item["title"], "poster": item["poster"]}
 
 
-def render_recommendations(recs: list[dict], active_provider_ids: set | None = None) -> None:
+def render_recommendations(recs: list[dict], active_provider_ids: set | None = None, section: str = "rec") -> None:
     """Grid of up to 10 recommendation cards, optionally filtered by provider."""
     if not recs:
         return
@@ -56,7 +61,7 @@ def render_recommendations(recs: list[dict], active_provider_ids: set | None = N
     for row in rows:
         cols = st.columns(5)
         for i, item in enumerate(row):
-            render_rec_card(cols[i], item, providers_map.get(item["id"]))
+            render_rec_card(cols[i], item, providers_map.get(item["id"]), section=section)
 
 
 def render_movie_row(movie_list: list[dict], key_prefix: str, active_provider_ids: set | None = None) -> None:

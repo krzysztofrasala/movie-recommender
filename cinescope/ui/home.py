@@ -81,14 +81,14 @@ def _render_for_you(provider_ids: set | None) -> None:
     if for_you:
         st.subheader("💡 Recommended For You")
         st.caption("Based on movies you rated 4–5 stars")
-        render_recommendations(for_you, active_provider_ids=provider_ids)
+        render_recommendations(for_you, active_provider_ids=provider_ids, section="foryou")
         st.markdown("---")
 
 
 def _render_active_recommendations(provider_ids: set | None) -> None:
     if st.session_state.recommendations:
         st.subheader(f"🎯 Similar to: *{st.session_state.rec_source}*")
-        render_recommendations(st.session_state.recommendations, active_provider_ids=provider_ids)
+        render_recommendations(st.session_state.recommendations, active_provider_ids=provider_ids, section="similar")
         st.markdown("---")
 
 

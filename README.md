@@ -42,7 +42,7 @@
 - Highlights shared director, genres, and cast members
 
 ### ❤️ Personal
-- **Watchlist** — persisted across sessions (saved to `.watchlist.json`); thumbnails in the sidebar
+- **Watchlist** — per-visitor and saved to your browser's localStorage, so it survives page reloads without any server-side storage; thumbnails in the sidebar
 - **Star Ratings** — rate any recommended movie 1–5 stars
 - **Search History** — one-click re-run of your last 10 searches
 - **Your Stats** — watchlist count, rated movies count, average rating

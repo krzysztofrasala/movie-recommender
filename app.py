@@ -69,6 +69,9 @@ def main() -> None:
     st.markdown("---")
     st.markdown(_FOOTER_HTML, unsafe_allow_html=True)
 
+    # Persist the watchlist to the browser after all mutations for this run.
+    state.persist_watchlist()
+
 
 if __name__ == "__main__":
     main()
