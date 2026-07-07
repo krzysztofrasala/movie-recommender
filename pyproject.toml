@@ -1,0 +1,36 @@
+[project]
+name = "cinescope"
+version = "0.1.0"
+description = "Movie & TV discovery app built with Streamlit and the TMDB API."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = [".venv", "recommender.ipynb"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle errors and warnings
+    "F",         # pyflakes (unused imports/vars, undefined names)
+    "I",         # import sorting
+    "B",         # flake8-bugbear (likely bugs and design smells)
+    "UP",        # pyupgrade (modernise syntax)
+    "SIM",       # simplify obvious patterns
+    "RUF",       # ruff-specific rules
+]
+ignore = [
+    "E501",      # line length — many f-string HTML snippets are unavoidable
+    "B008",      # allow st.button(...) with kwargs
+    "E402",      # allow module-level st.set_page_config before other imports
+    "RUF001",    # allow non-ASCII characters (emojis in tab/button labels)
+    "RUF002",    # same, for docstrings
+    "RUF003",    # same, for comments
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]

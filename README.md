@@ -4,6 +4,11 @@
 
 **Live Demo → [cinescope.streamlit.app](https://movie-recommender-j39lcqbuavwn7ndlblqytc.streamlit.app/)**
 
+[![CI](https://github.com/krzysztofrasala/movie-recommender/actions/workflows/ci.yml/badge.svg)](https://github.com/krzysztofrasala/movie-recommender/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Ruff](https://img.shields.io/badge/lint-ruff-46aef7)](https://github.com/astral-sh/ruff)
+
 ---
 
 ## ✨ Features
@@ -119,6 +124,13 @@ This fetches up to 4,000 popular movies from TMDB and takes ~5–10 minutes depe
 ### 6. Run the app
 ```bash
 streamlit run app.py
+```
+
+### 7. Run tests and linter
+```bash
+pip install pytest ruff
+pytest              # 60 unit tests for parsing, state, taste DNA, ...
+ruff check .        # style + likely-bug lint
 ```
 
 ---

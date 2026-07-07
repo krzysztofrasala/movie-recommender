@@ -44,8 +44,8 @@ def _render_genre_radar(genre_scores: dict) -> None:
     normalised = [v / max_value for v in values]
 
     fig = go.Figure(go.Scatterpolar(
-        r=normalised + [normalised[0]],
-        theta=labels + [labels[0]],
+        r=[*normalised, normalised[0]],
+        theta=[*labels, labels[0]],
         fill="toself",
         fillcolor="rgba(245,197,24,0.15)",
         line=dict(color="#F5C518", width=2),

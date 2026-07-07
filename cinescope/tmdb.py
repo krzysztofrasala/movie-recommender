@@ -339,4 +339,4 @@ def fetch_providers_batch(movie_ids: list[int], region: str = DEFAULT_REGION) ->
     """Providers for many movies in parallel; returns {movie_id: providers}."""
     with ThreadPoolExecutor(max_workers=10) as executor:
         results = list(executor.map(lambda mid: fetch_movie_providers(mid, region), movie_ids))
-    return dict(zip(movie_ids, results))
+    return dict(zip(movie_ids, results, strict=True))

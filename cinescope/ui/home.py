@@ -63,13 +63,11 @@ def _render_trending(provider_ids: set | None) -> None:
     if trending:
         prev_col, _, next_col = st.columns([1, 8, 1])
         with prev_col:
-            if st.button("⬅️", use_container_width=True):
-                if st.session_state.trending_index > 0:
-                    st.session_state.trending_index -= TRENDING_PAGE_SIZE
+            if st.button("⬅️", use_container_width=True) and st.session_state.trending_index > 0:
+                st.session_state.trending_index -= TRENDING_PAGE_SIZE
         with next_col:
-            if st.button("➡️", use_container_width=True):
-                if st.session_state.trending_index < TRENDING_MAX_INDEX:
-                    st.session_state.trending_index += TRENDING_PAGE_SIZE
+            if st.button("➡️", use_container_width=True) and st.session_state.trending_index < TRENDING_MAX_INDEX:
+                st.session_state.trending_index += TRENDING_PAGE_SIZE
         start = st.session_state.trending_index
         render_movie_row(trending[start:start + TRENDING_PAGE_SIZE], "tr", active_provider_ids=provider_ids)
 
