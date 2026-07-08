@@ -40,7 +40,9 @@ def _check_prerequisites() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="CineScope", layout="wide", page_icon="🎬", initial_sidebar_state="expanded")
+    # "auto" lets Streamlit collapse the sidebar on narrow viewports so the
+    # main content is visible on mobile without a manual close first.
+    st.set_page_config(page_title="CineScope", layout="wide", page_icon="🎬", initial_sidebar_state="auto")
     styles.inject()
     state.init()
     _check_prerequisites()

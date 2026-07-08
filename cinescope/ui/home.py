@@ -16,24 +16,15 @@ TRENDING_MAX_INDEX = 15
 def _render_film_of_the_day() -> None:
     motd = tmdb.fetch_movie_of_the_day()
     if motd and motd["backdrop"]:
+        overview = motd["overview"][:240] + ("..." if len(motd["overview"]) > 240 else "")
+        # Class-based markup so media queries in styles.py can adapt padding
+        # and font sizes on tablet/mobile without editing inline CSS.
         st.markdown(f"""
-        <div style="
-            background-image: linear-gradient(to right, rgba(5,5,5,0.97) 30%, rgba(5,5,5,0.55) 70%, rgba(5,5,5,0.1)),
-                              url({motd['backdrop']});
-            background-size: cover; background-position: center top;
-            border-radius: 16px; padding: 50px 60px; margin-bottom: 6px; min-height: 230px;
-            border: 1px solid #222;
-        ">
-            <div style="color:#F5C518;font-size:0.72rem;font-weight:700;letter-spacing:3px;margin-bottom:12px;opacity:0.9;">
-                🎬 &nbsp; FILM OF THE DAY
-            </div>
-            <div style="color:#fff;font-size:2.2rem;font-weight:800;margin-bottom:6px;letter-spacing:-0.5px;text-shadow:0 2px 10px rgba(0,0,0,0.5);">
-                {motd['title']}
-            </div>
-            <div style="color:#F5C518;font-size:0.95rem;margin-bottom:16px;font-weight:700;">⭐ {motd['rating']}/10</div>
-            <div style="color:#bbb;font-size:0.88rem;max-width:500px;line-height:1.65;">
-                {motd['overview'][:240]}{'...' if len(motd['overview']) > 240 else ''}
-            </div>
+        <div class="cs-motd-banner" style="background-image: linear-gradient(to right, rgba(5,5,5,0.97) 30%, rgba(5,5,5,0.55) 70%, rgba(5,5,5,0.1)), url({motd['backdrop']});">
+            <div class="cs-motd-eyebrow">🎬 &nbsp; FILM OF THE DAY</div>
+            <div class="cs-motd-title">{motd['title']}</div>
+            <div class="cs-motd-rating">⭐ {motd['rating']}/10</div>
+            <div class="cs-motd-overview">{overview}</div>
         </div>
         """, unsafe_allow_html=True)
         c1, c2, _ = st.columns([1, 1, 6])

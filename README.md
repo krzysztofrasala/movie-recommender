@@ -52,6 +52,11 @@
 - **Search History** — one-click re-run of your last 10 searches
 - **Your Stats** — watchlist count, rated movies count, average rating
 
+### 📱 Responsive
+- **Adaptive card grid** — 5 columns on desktop, 2 on tablet, 1 on mobile via CSS `flex-wrap` on Streamlit column blocks
+- **Auto-collapsing sidebar** — filters slide out of the way on narrow screens so the main content is visible on first paint
+- **Scalable typography** — banner heading and body scale down with media queries at 900px and 560px breakpoints
+
 ---
 
 ## 🛠️ Tech Stack
@@ -205,6 +210,15 @@ A full modal with tagline, cast photos, embedded trailer and a direct JustWatch 
 Genre radar and era-preference chart built from your ratings — plus a matching "movie persona" for fun.
 
 ![Taste DNA](docs/screenshots/04-taste-dna.png)
+
+### Responsive on phone and tablet
+Card grids reflow from 5-across on desktop to 2-across on tablet and 1-across on mobile. The sidebar auto-collapses on narrow viewports so the main content is visible on first paint, and the movie details modal resizes to fit small screens.
+
+<p align="center">
+  <img src="docs/screenshots/05-mobile.png" alt="Mobile view (375px)" width="280"/>
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/06-tablet.png" alt="Tablet view (820px)" width="480"/>
+</p>
 
 ---
 
