@@ -40,3 +40,16 @@ def render() -> None:
                         state.set_recommendations(more_like_this(m["id"], m["title"]), m["title"])
                     st.rerun()
         st.divider()
+
+    if st.session_state.recommendations:
+        st.markdown("---")
+        c1, c2 = st.columns([9, 1])
+        with c1:
+            st.subheader(f"🎯 Similar to: *{st.session_state.rec_source}*")
+        with c2:
+            if st.button("❌ Close", key="close_top10_rec"):
+                st.session_state.recommendations = []
+                st.session_state.rec_source = None
+                st.rerun()
+        from cinescope.ui.cards import render_recommendations
+        render_recommendations(st.session_state.recommendations, section="top10_rec")

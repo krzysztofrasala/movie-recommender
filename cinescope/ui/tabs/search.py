@@ -194,3 +194,16 @@ def render() -> None:
         _render_person_results(query)
     else:
         _render_title_results(query, is_tv=search_type == "📺 TV Shows")
+        
+    if st.session_state.recommendations:
+        st.markdown("---")
+        c1, c2 = st.columns([9, 1])
+        with c1:
+            st.subheader(f"🎯 Similar to: *{st.session_state.rec_source}*")
+        with c2:
+            if st.button("❌ Close", key="close_search_rec"):
+                st.session_state.recommendations = []
+                st.session_state.rec_source = None
+                st.rerun()
+        from cinescope.ui.cards import render_recommendations
+        render_recommendations(st.session_state.recommendations, section="search_rec")

@@ -82,6 +82,8 @@ def fetch_details(movie_id):
         "release_date": data.get("release_date", ""),
         "tags": " ".join(tags).lower(),
         "genres": str([{"name": g["name"]} for g in data.get("genres", [])]),
+        "runtime": data.get("runtime", 0),
+        "vote_average": data.get("vote_average", 0.0),
     }
 
 
@@ -127,10 +129,19 @@ def main():
     df = df[df["tags"].str.strip() != ""].reset_index(drop=True)
     print(f"  After dedup/cleanup: {df.shape[0]} movies")
 
-    print("Step 3: Building similarity model...")
-    cv = CountVectorizer(max_features=5000, stop_words="english")
-    vectors = cv.fit_transform(df["tags"])
-    similarity_matrix = cosine_similarity(vectors).astype("float32")
+    print("Step 3: Building semantic similarity model using sentence-transformers...")
+    try:
+        from sentence_transformers import SentenceTransformer
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+        embeddings = model.encode(df["tags"].tolist(), show_progress_bar=True)
+        similarity_matrix = cosine_similarity(embeddings).astype("float32")
+    except ImportError:
+        print("sentence-transformers not installed. Falling back to CountVectorizer.")
+        from sklearn.feature_extraction.text import CountVectorizer
+        cv = CountVectorizer(max_features=5000, stop_words="english")
+        embeddings = cv.fit_transform(df["tags"])
+        similarity_matrix = cosine_similarity(embeddings).astype("float32")
+
     neighbors = build_neighbors(similarity_matrix, TOP_K)
 
     print("Step 4: Saving model files...")
@@ -139,10 +150,14 @@ def main():
         pickle.dump(model_df.to_dict(), f)
     with open("neighbors.pkl", "wb") as f:
         pickle.dump(neighbors, f)
-    sparse.save_npz("vectors.npz", vectors.astype(np.int32))
+        
+    if isinstance(embeddings, np.ndarray):
+        np.savez_compressed("vectors.npz", embeddings=embeddings)
+    else:
+        sparse.save_npz("vectors.npz", embeddings.astype(np.int32))
 
-    # Save a minimal movies.csv so the app can read release_date and genres
-    csv_df = df[["movie_id", "title", "release_date", "genres"]].rename(columns={"movie_id": "id"})
+    # Save a minimal movies.csv so the app can read release_date, genres, runtime and rating
+    csv_df = df[["movie_id", "title", "release_date", "genres", "runtime", "vote_average"]].rename(columns={"movie_id": "id"})
     csv_df.to_csv("movies.csv", index=False)
 
     years = pd.to_datetime(df["release_date"], errors="coerce").dt.year

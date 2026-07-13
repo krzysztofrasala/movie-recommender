@@ -82,13 +82,11 @@ def _render_ratings() -> None:
         )
 
 
-def render() -> tuple[list[str], tuple[int, int], set[int]]:
-    """Render the sidebar and return (selected genres, year range, provider ids)."""
+def render() -> tuple[list[str], set[int]]:
+    """Render the sidebar and return (selected genres, provider ids)."""
     with st.sidebar:
         st.header("🔍 Filters")
         selected_genres = st.multiselect("Genre", data.all_genres())
-        min_year, max_year = data.year_bounds()
-        year_range = st.slider("Release Year", min_year, max_year, (min_year, max_year))
 
         providers = tmdb.fetch_providers_list()
         provider_name_to_id = {p["name"]: p["id"] for p in providers}
@@ -104,4 +102,4 @@ def render() -> tuple[list[str], tuple[int, int], set[int]]:
         _render_watchlist()
         _render_ratings()
 
-    return selected_genres, year_range, selected_provider_ids
+    return selected_genres, selected_provider_ids

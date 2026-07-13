@@ -287,6 +287,69 @@ def smart_discover(genres: tuple, year_gte: int | None, year_lte: int | None,
 
 
 @st.cache_data(ttl=HOUR)
+def filtered_discover(
+    genres: tuple, 
+    year_gte: int | None, 
+    year_lte: int | None, 
+    runtime_lte: int | None,
+    vote_gte: float | None, 
+    provider_ids: tuple | None,
+    sort_by: str = "popularity.desc",
+    primary_release_date_gte: str | None = None,
+    primary_release_date_lte: str | None = None,
+    with_release_type: str | None = None,
+    limit: int = 20
+) -> list[dict]:
+    """Discover movies matching explicit global UI filters directly via TMDB."""
+    params: dict = {"sort_by": sort_by, "vote_count.gte": 50, "language": "en-US"}
+    
+    if genres:
+        params["with_genres"] = ",".join(str(g) for g in genres)
+        
+    if primary_release_date_gte:
+        params["primary_release_date.gte"] = primary_release_date_gte
+    elif year_gte:
+        params["primary_release_date.gte"] = f"{year_gte}-01-01"
+        
+    if primary_release_date_lte:
+        params["primary_release_date.lte"] = primary_release_date_lte
+    elif year_lte:
+        params["primary_release_date.lte"] = f"{year_lte}-12-31"
+        
+    if runtime_lte and runtime_lte < 300:
+        params["with_runtime.lte"] = runtime_lte
+        
+    if vote_gte:
+        params["vote_average.gte"] = vote_gte
+        
+    if provider_ids:
+        params["with_watch_providers"] = "|".join(str(p) for p in provider_ids)
+        params["watch_region"] = DEFAULT_REGION
+        
+    if with_release_type:
+        params["with_release_type"] = with_release_type
+        params["region"] = DEFAULT_REGION
+        
+    d = _get("discover/movie", params)
+    
+    if not d:
+        return []
+        
+    results = d.get("results", [])
+    valid_movies = []
+    
+    for m in results:
+        # Require a poster path to avoid displaying empty "No Poster" cards
+        if m.get("poster_path"):
+            valid_movies.append(m)
+            
+        if len(valid_movies) == limit:
+            break
+            
+    return valid_movies
+
+
+@st.cache_data(ttl=HOUR)
 def fetch_hidden_gems(genre_id: int | None, exclude_ids: tuple) -> list[dict]:
     """Highly-rated movies with modest vote counts — 'hidden gems'."""
     params: dict = {
@@ -323,16 +386,30 @@ def fetch_providers_list(region: str = DEFAULT_REGION) -> list[dict]:
 
 @st.cache_data(ttl=DAY)
 def fetch_movie_providers(movie_id: int, region: str = DEFAULT_REGION) -> list[dict]:
-    """Flat-rate streaming providers for a movie in ``region``."""
+    """Streaming providers for a movie in ``region``, including flatrate, rent, and buy."""
     d = _get(f"movie/{movie_id}/watch/providers")
     if not d:
         return []
-    flatrate = d.get("results", {}).get(region, {}).get("flatrate", [])
-    return [
-        {"id": p["provider_id"], "name": p["provider_name"], "logo": f"{IMAGE_BASE_URL}/original{p['logo_path']}"}
-        for p in flatrate
-        if p.get("logo_path")
-    ]
+    
+    region_data = d.get("results", {}).get(region, {})
+    providers = []
+    
+    # Combine flatrate, rent, and buy options
+    for category in ("flatrate", "rent", "buy"):
+        for p in region_data.get(category, []):
+            providers.append(
+                {"id": p["provider_id"], "name": p["provider_name"], "logo": f"{IMAGE_BASE_URL}/original{p['logo_path']}"}
+            )
+            
+    # Deduplicate providers (a movie might be available to rent and buy on the same platform)
+    seen = set()
+    unique_providers = []
+    for p in providers:
+        if p["id"] not in seen and p.get("logo"):
+            seen.add(p["id"])
+            unique_providers.append(p)
+            
+    return unique_providers
 
 
 def fetch_providers_batch(movie_ids: list[int], region: str = DEFAULT_REGION) -> dict[int, list[dict]]:

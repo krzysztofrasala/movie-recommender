@@ -154,3 +154,16 @@ def render() -> None:
 
     st.markdown("---")
     _render_hidden_gems(genre_scores)
+    
+    if st.session_state.recommendations:
+        st.markdown("---")
+        c1, c2 = st.columns([9, 1])
+        with c1:
+            st.subheader(f"🎯 Similar to: *{st.session_state.rec_source}*")
+        with c2:
+            if st.button("❌ Close", key="close_taste_rec"):
+                st.session_state.recommendations = []
+                st.session_state.rec_source = None
+                st.rerun()
+        from cinescope.ui.cards import render_recommendations
+        render_recommendations(st.session_state.recommendations, section="taste_rec")

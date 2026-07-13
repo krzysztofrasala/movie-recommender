@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import streamlit as st
 
 from cinescope import state, tmdb
@@ -11,6 +12,15 @@ from cinescope.ui.dialogs import show_movie_details
 
 TRENDING_PAGE_SIZE = 5
 TRENDING_MAX_INDEX = 15
+
+def _is_filtered(filters: dict) -> bool:
+    if not filters:
+        return False
+    has_genre = bool(filters.get("genres"))
+    has_year = filters.get("year_range") != (1900, 2026) and filters.get("year_range") is not None
+    has_vote = filters.get("vote_min", 0.0) > 0.0
+    has_provider = bool(filters.get("provider_ids"))
+    return has_genre or has_year or has_vote or has_provider
 
 
 def _render_film_of_the_day() -> None:
@@ -40,51 +50,77 @@ def _render_film_of_the_day() -> None:
     st.markdown("---")
 
 
-def _render_now_playing(provider_ids: set | None) -> None:
-    now_playing = tmdb.fetch_now_playing()
-    if now_playing:
-        st.subheader("🎭 Now Playing in Cinemas")
-        render_movie_row(now_playing, "np", active_provider_ids=provider_ids)
-        st.markdown("---")
-
-
-def _render_trending(provider_ids: set | None) -> None:
-    trending = tmdb.fetch_trending()
+def _render_trending(filters: dict) -> None:
     st.subheader("🔥 Trending Today")
-    if trending:
-        prev_col, _, next_col = st.columns([1, 8, 1])
-        with prev_col:
-            if st.button("⬅️", use_container_width=True) and st.session_state.trending_index > 0:
-                st.session_state.trending_index -= TRENDING_PAGE_SIZE
-        with next_col:
-            if st.button("➡️", use_container_width=True) and st.session_state.trending_index < TRENDING_MAX_INDEX:
-                st.session_state.trending_index += TRENDING_PAGE_SIZE
-        start = st.session_state.trending_index
-        render_movie_row(trending[start:start + TRENDING_PAGE_SIZE], "tr", active_provider_ids=provider_ids)
+    
+    if _is_filtered(filters):
+        from cinescope.config import GENRE_NAME_TO_ID
+        genre_ids = [GENRE_NAME_TO_ID[g] for g in filters.get("genres", []) if g in GENRE_NAME_TO_ID]
+        
+        trending = tmdb.filtered_discover(
+            genres=tuple(genre_ids),
+            year_gte=None,
+            year_lte=None,
+            runtime_lte=None,
+            vote_gte=None,
+            provider_ids=tuple(filters.get("provider_ids", [])) if filters.get("provider_ids") else None,
+            sort_by="popularity.desc",
+            limit=20
+        )
+        if trending:
+            prev_col, _, next_col = st.columns([1, 8, 1])
+            with prev_col:
+                if st.button("⬅️", use_container_width=True, key="tr_prev_filtered") and st.session_state.trending_index > 0:
+                    st.session_state.trending_index -= TRENDING_PAGE_SIZE
+            with next_col:
+                if st.button("➡️", use_container_width=True, key="tr_next_filtered") and st.session_state.trending_index < TRENDING_MAX_INDEX:
+                    st.session_state.trending_index += TRENDING_PAGE_SIZE
+            start = st.session_state.trending_index
+            render_movie_row(trending[start:start + TRENDING_PAGE_SIZE], "tr", filters=filters, pre_filtered=True)
+        else:
+            st.info("No movies match your global filters.")
+    else:
+        trending = tmdb.fetch_trending()
+        if trending:
+            prev_col, _, next_col = st.columns([1, 8, 1])
+            with prev_col:
+                if st.button("⬅️", use_container_width=True) and st.session_state.trending_index > 0:
+                    st.session_state.trending_index -= TRENDING_PAGE_SIZE
+            with next_col:
+                if st.button("➡️", use_container_width=True) and st.session_state.trending_index < TRENDING_MAX_INDEX:
+                    st.session_state.trending_index += TRENDING_PAGE_SIZE
+            start = st.session_state.trending_index
+            render_movie_row(trending[start:start + TRENDING_PAGE_SIZE], "tr", filters=filters)
 
     st.markdown("---")
 
 
-def _render_for_you(provider_ids: set | None) -> None:
+def _render_for_you(filters: dict) -> None:
     for_you = recommend_for_you()
     if for_you:
         st.subheader("💡 Recommended For You")
         st.caption("Based on movies you rated 4–5 stars")
-        render_recommendations(for_you, active_provider_ids=provider_ids, section="foryou")
+        render_recommendations(for_you, filters=filters, section="foryou")
         st.markdown("---")
 
 
-def _render_active_recommendations(provider_ids: set | None) -> None:
+def _render_active_recommendations(filters: dict) -> None:
     if st.session_state.recommendations:
-        st.subheader(f"🎯 Similar to: *{st.session_state.rec_source}*")
-        render_recommendations(st.session_state.recommendations, active_provider_ids=provider_ids, section="similar")
+        c1, c2 = st.columns([9, 1])
+        with c1:
+            st.subheader(f"🎯 Similar to: *{st.session_state.rec_source}*")
+        with c2:
+            if st.button("❌ Close", key="close_home_rec"):
+                st.session_state.recommendations = []
+                st.session_state.rec_source = None
+                st.rerun()
+        render_recommendations(st.session_state.recommendations, filters=filters, section="similar")
         st.markdown("---")
 
 
-def render(provider_ids: set | None) -> None:
+def render(filters: dict) -> None:
     """Render all home-page sections in order."""
     _render_film_of_the_day()
-    _render_now_playing(provider_ids)
-    _render_trending(provider_ids)
-    _render_for_you(provider_ids)
-    _render_active_recommendations(provider_ids)
+    _render_trending(filters)
+    _render_for_you(filters)
+    _render_active_recommendations(filters)

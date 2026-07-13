@@ -9,7 +9,25 @@ from cinescope.data import get_local_genres
 from cinescope.recommender import more_like_this
 from cinescope.ui.dialogs import show_movie_details
 from cinescope.ui.html import genre_chips_html, justwatch_url, poster_html, provider_logos_html
+from cinescope.config import GENRE_NAME_TO_ID
 
+def _apply_global_filters(movie_list: list[dict], filters: dict | None) -> list[dict]:
+    if not filters:
+        return movie_list
+        
+    filtered = []
+    selected_genres = filters.get("genres", [])
+    genre_ids_to_match = {GENRE_NAME_TO_ID.get(g) for g in selected_genres if g in GENRE_NAME_TO_ID}
+    
+    for m in movie_list:
+        if genre_ids_to_match:
+            m_genres = set(m.get("genre_ids", []))
+            if not any(gid in m_genres for gid in genre_ids_to_match):
+                continue
+                
+        filtered.append(m)
+        
+    return filtered
 
 def render_rec_card(col, item: dict, providers: list[dict] | None = None, section: str = "rec") -> None:
     """Full recommendation card: poster, genres, actions, watchlist and rating.
@@ -47,12 +65,20 @@ def render_rec_card(col, item: dict, providers: list[dict] | None = None, sectio
             st.session_state.rated_movies_info[item["id"]] = {"title": item["title"], "poster": item["poster"]}
 
 
-def render_recommendations(recs: list[dict], active_provider_ids: set | None = None, section: str = "rec") -> None:
-    """Grid of up to 10 recommendation cards, optionally filtered by provider."""
+def render_recommendations(recs: list[dict], filters: dict | None = None, section: str = "rec", pre_filtered: bool = False) -> None:
+    """Grid of up to 10 recommendation cards, optionally filtered by provider and global filters."""
     if not recs:
         return
-    providers_map = tmdb.fetch_providers_batch([r["id"] for r in recs])
-    if active_provider_ids:
+        
+    if not pre_filtered:
+        recs = _apply_global_filters(recs, filters)
+    if not recs:
+        st.info("No movies match your global filters. Try adjusting genre, year, or rating.")
+        return
+
+    active_provider_ids = filters.get("provider_ids") if filters else None
+    providers_map = tmdb.fetch_providers_batch([r["id"] for r in recs]) if active_provider_ids else {}
+    if active_provider_ids and not pre_filtered:
         recs = [r for r in recs if any(p["id"] in active_provider_ids for p in providers_map.get(r["id"], []))]
         if not recs:
             st.info("No movies found on the selected streaming platforms. Try adjusting the filter.")
@@ -64,10 +90,17 @@ def render_recommendations(recs: list[dict], active_provider_ids: set | None = N
             render_rec_card(cols[i], item, providers_map.get(item["id"]), section=section)
 
 
-def render_movie_row(movie_list: list[dict], key_prefix: str, active_provider_ids: set | None = None) -> None:
+def render_movie_row(movie_list: list[dict], key_prefix: str, filters: dict | None = None, pre_filtered: bool = False) -> None:
     """Single row of up to 5 cards built from raw TMDB list payloads."""
+    if not pre_filtered:
+        movie_list = _apply_global_filters(movie_list, filters)
+    if not movie_list:
+        st.info("No movies match your global filters.")
+        return
+
+    active_provider_ids = filters.get("provider_ids") if filters else None
     providers_map = tmdb.fetch_providers_batch([m["id"] for m in movie_list]) if active_provider_ids else {}
-    if active_provider_ids:
+    if active_provider_ids and not pre_filtered:
         movie_list = [
             m for m in movie_list
             if any(p["id"] in active_provider_ids for p in providers_map.get(m.get("id"), []))
@@ -96,3 +129,19 @@ def render_movie_row(movie_list: list[dict], key_prefix: str, active_provider_id
                     state.set_recommendations(more_like_this(movie_id, title), title)
                 st.rerun()
             st.link_button("Watch 📺", justwatch_url(title), use_container_width=True)
+            
+            in_watchlist = any(mw["title"] == title for mw in st.session_state.watchlist)
+            if in_watchlist:
+                st.button("❤️ In Watchlist", key=f"{key_prefix}_wl_{movie_id}", disabled=True, use_container_width=True)
+            else:
+                if st.button("🤍 Add to Watchlist", key=f"{key_prefix}_wl_{movie_id}", use_container_width=True):
+                    if state.add_to_watchlist(title, poster, rating):
+                        st.toast(f"❤️ **{title}** added to watchlist!")
+                    st.rerun()
+
+            saved = st.session_state.user_ratings.get(movie_id)
+            new_rating = st.feedback("stars", key=f"{key_prefix}_fb_{movie_id}")
+            if new_rating is not None and new_rating != saved:
+                st.session_state.user_ratings[movie_id] = new_rating
+                st.session_state.rated_movies_info[movie_id] = {"title": title, "poster": poster}
+                st.rerun()

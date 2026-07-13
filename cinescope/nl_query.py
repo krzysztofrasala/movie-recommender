@@ -1,13 +1,21 @@
-"""Keyword-driven natural-language search parsing (zero API cost).
+"""Keyword-driven natural-language search parsing, now supercharged with Gemini AI.
 
 Turns free text like "scary movie from the 90s" into TMDB discover
 parameters: genres, year range, minimum rating and sort order.
+Falls back to zero-cost keyword extraction if no Gemini API key is configured.
 """
 
 from __future__ import annotations
 
 import datetime
+import logging
+import os
 import re
+
+import streamlit as st
+from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 # Keyword (or phrase) → TMDB genre id.
 GENRE_KEYWORDS = {
@@ -45,8 +53,60 @@ RATING_KEYWORDS = {
 }
 
 
+class TMDBParams(BaseModel):
+    genres: list[int] = Field(default_factory=list, description="List of TMDB genre IDs mentioned or implied (max 2).")
+    year_gte: int | None = Field(None, description="Minimum release year (e.g. 1990 for '90s').")
+    year_lte: int | None = Field(None, description="Maximum release year (e.g. 1999 for '90s').")
+    vote_gte: float | None = Field(None, description="Minimum user rating (e.g. 8.0 for 'masterpiece', max 10.0).")
+    sort_by: str = Field("popularity.desc", description="One of: 'popularity.desc', 'vote_average.desc', 'primary_release_date.desc', 'primary_release_date.asc'")
+
+def _get_gemini_key() -> str | None:
+    try:
+        return st.secrets["GEMINI_API_KEY"]
+    except (KeyError, FileNotFoundError):
+        return os.environ.get("GEMINI_API_KEY")
+
+
+@st.cache_data(ttl=3600)
 def parse_natural_query(text: str) -> dict:
-    """Extract TMDB discover filters from a free-text description."""
+    """Extract TMDB discover filters from a free-text description using Gemini (if available) or fallback."""
+    gemini_key = _get_gemini_key()
+    
+    if gemini_key:
+        try:
+            from google import genai
+            client = genai.Client(api_key=gemini_key)
+            prompt = (
+                f"You are a movie recommendation assistant. Extract the search intent from this user query:\n"
+                f"'{text}'\n"
+                "Return the parameters for a TMDB Discover API call. Match genres to these IDs: "
+                f"{', '.join([f'{k}({v})' for k, v in GENRE_KEYWORDS.items()][:20])}... "
+                "Current year is " + str(datetime.date.today().year)
+            )
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config={
+                    'response_mime_type': 'application/json',
+                    'response_schema': TMDBParams,
+                },
+            )
+            data = TMDBParams.model_validate_json(response.text)
+            return {
+                "genres": data.genres[:2],
+                "year_gte": data.year_gte,
+                "year_lte": data.year_lte,
+                "vote_gte": data.vote_gte,
+                "sort_by": data.sort_by,
+            }
+        except Exception as e:
+            logger.warning(f"Gemini NL query parsing failed: {e}. Falling back to keyword regex.")
+
+    # Fallback to zero-cost keyword extraction
+    return _fallback_parse(text)
+
+
+def _fallback_parse(text: str) -> dict:
     q = text.lower()
     genres: list[int] = []
     vote_gte: float | None = None

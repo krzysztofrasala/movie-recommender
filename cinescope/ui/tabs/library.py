@@ -38,7 +38,7 @@ def render(filtered: pd.DataFrame) -> None:
         with mood_cols[i]:
             if st.button(label, use_container_width=True, key=f"mood_{genre_id}"):
                 with st.spinner("Loading..."):
-                    state.set_recommendations(tmdb.discover_by_genre(genre_id), label)
+                    state.set_recommendations(tmdb.discover_by_genre(genre_id), label, add_to_history=False)
                 st.rerun()
 
     st.markdown("**Browse by decade:**")
@@ -47,7 +47,7 @@ def render(filtered: pd.DataFrame) -> None:
         with decade_cols[i]:
             if st.button(label, use_container_width=True, key=f"dec_{label}"):
                 with st.spinner("Loading..."):
-                    state.set_recommendations(tmdb.discover_by_decade(start, end), f"Best of {label}")
+                    state.set_recommendations(tmdb.discover_by_decade(start, end), f"Best of {label}", add_to_history=False)
                 st.rerun()
 
     st.markdown("---")
@@ -61,3 +61,16 @@ def render(filtered: pd.DataFrame) -> None:
         with st.spinner("Finding recommendations..."):
             state.set_recommendations(recommend(selected), selected)
         st.rerun()
+        
+    if st.session_state.recommendations:
+        st.markdown("---")
+        c1, c2 = st.columns([9, 1])
+        with c1:
+            st.subheader(f"🎯 Similar to: *{st.session_state.rec_source}*")
+        with c2:
+            if st.button("❌ Close", key="close_lib_rec"):
+                st.session_state.recommendations = []
+                st.session_state.rec_source = None
+                st.rerun()
+        from cinescope.ui.cards import render_recommendations
+        render_recommendations(st.session_state.recommendations, section="lib_rec")

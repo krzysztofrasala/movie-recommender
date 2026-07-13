@@ -177,6 +177,25 @@ hr { border-color: #1e1e1e !important; margin: 1.5rem 0 !important; }
     line-height: 1.65;
 }
 
+/* ── Column (Card) Hover Animations ── */
+[data-testid="stColumn"] {
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:hover {
+    transform: translateY(-4px);
+    filter: drop-shadow(0 8px 16px rgba(245, 197, 24, 0.15));
+}
+
+/* ── Dialog Glassmorphism ── */
+[data-testid="stDialog"] > div {
+    background: rgba(18, 18, 18, 0.75) !important;
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
 /* ── Button text: never letter-stack, never truncate to ellipsis ──────
    Streamlit's default styles clip button text with ellipsis in narrow
    columns ("Find Similar" → "Find Si..."). Let text wrap between whole

@@ -21,6 +21,7 @@
 
 ### 🔍 Discovery
 - **My Library** — search 5,000+ movies with text filter, genre & year sliders
+- **Virtual Assistant** — chat with an AI assistant to get personalized movie recommendations via natural language
 - **Mood Picker** — one click to get Comedy / Horror / Action / Romance / Sci-Fi / Thriller / Drama / Animation picks
 - **Browse by Decade** — 1980s · 1990s · 2000s · 2010s · 2020s
 - **🎲 Surprise Me** — instant random recommendation from your active filters
@@ -161,6 +162,7 @@ movie-recommender/
 │       ├── sidebar.py          # Filters, stats, watchlist, ratings
 │       ├── styles.py           # Global CSS
 │       └── tabs/               # Library, Search, Top 10, Compare, Taste DNA
+│           └── assistant.py    # AI Chat interface for recommendations
 ├── tests/                      # pytest suite (nl_query, ui, state, taste, tmdb, data)
 ├── fetch_dataset.py            # Rebuilds the recommendation model from TMDB
 ├── requirements.txt            # Python dependencies
