@@ -11,24 +11,24 @@ def _get_gemini_key() -> str | None:
         return os.environ.get("GEMINI_API_KEY")
 
 def render() -> None:
-    st.header("💬 Asystent Filmowy AI")
-    st.markdown("Porozmawiaj z wirtualnym doradcą, który pomoże Ci znaleźć idealny film!")
+    st.header("💬 AI Movie Assistant")
+    st.markdown("Chat with a virtual advisor who will help you find the perfect movie!")
     
     gemini_key = _get_gemini_key()
     if not gemini_key:
-        st.warning("⚠️ Brak klucza `GEMINI_API_KEY`. Aby korzystać z asystenta, dodaj go w ustawieniach (secrets) lub ustaw zmienną środowiskową.")
+        st.warning("⚠️ Missing `GEMINI_API_KEY`. To use the assistant, add it in secrets.toml or set the environment variable.")
         return
         
     try:
         from google import genai
         client = genai.Client(api_key=gemini_key)
     except ImportError:
-        st.error("Biblioteka `google-genai` nie jest zainstalowana.")
+        st.error("The `google-genai` library is not installed.")
         return
 
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = [
-            {"role": "assistant", "content": "Cześć! Jestem Twoim wirtualnym doradcą filmowym. Na co masz dzisiaj ochotę?"}
+            {"role": "assistant", "content": "Hi! I'm your virtual movie advisor. What are you in the mood for today?"}
         ]
 
     # Create a scrollable container for the chat history
@@ -39,7 +39,7 @@ def render() -> None:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-    if prompt := st.chat_input("Napisz, jakiego filmu szukasz..."):
+    if prompt := st.chat_input("Tell me what kind of movie you're looking for..."):
         st.session_state.chat_messages.append({"role": "user", "content": prompt})
         
         # Display the user's message immediately in the container
@@ -49,20 +49,20 @@ def render() -> None:
 
             # Display the assistant's thinking and response in the container
             with st.chat_message("assistant"):
-                with st.spinner("Myślę..."):
-                    # Budujemy kontekst (np. ulubione filmy z Watchlist)
+                with st.spinner("Thinking..."):
+                    # Build context (e.g. favorite movies from Watchlist)
                     watchlist_titles = [m["title"] for m in st.session_state.watchlist]
-                    watchlist_ctx = f"Użytkownik ma w swojej Watchlist: {', '.join(watchlist_titles)}." if watchlist_titles else "Użytkownik nie ma jeszcze filmów w Watchlist."
+                    watchlist_ctx = f"The user has the following movies in their Watchlist: {', '.join(watchlist_titles)}." if watchlist_titles else "The user does not have any movies in their Watchlist yet."
                     
                     system_prompt = (
-                        "Jesteś ekspertem filmowym, wirtualnym doradcą w aplikacji CineScope. "
-                        "Twoim zadaniem jest pomóc użytkownikowi znaleźć idealny film do obejrzenia. "
-                        f"Znasz gust użytkownika: {watchlist_ctx} "
-                        "Bądź zwięzły, uprzejmy i proponuj 2-3 konkretne tytuły wraz z krótkim uzasadnieniem dlaczego pasują. "
-                        "Odpowiadaj w języku polskim."
+                        "You are a movie expert and virtual advisor in the CineScope app. "
+                        "Your task is to help the user find the perfect movie to watch. "
+                        f"You know the user's taste: {watchlist_ctx} "
+                        "Be concise, polite, and suggest 2-3 specific titles along with a short justification of why they fit. "
+                        "Respond in English."
                     )
                     
-                    # Przygotowujemy historię dla Gemini
+                    # Prepare history for Gemini
                     contents = [system_prompt]
                     for m in st.session_state.chat_messages:
                         role_prefix = "User: " if m["role"] == "user" else "Assistant: "
@@ -75,7 +75,7 @@ def render() -> None:
                     )
                     reply = response.text
                 except Exception as e:
-                    reply = f"Przepraszam, wystąpił błąd podczas łączenia z AI: {e}"
+                    reply = f"Sorry, an error occurred while connecting to the AI: {e}"
                 
                 st.markdown(reply)
                 st.session_state.chat_messages.append({"role": "assistant", "content": reply})
