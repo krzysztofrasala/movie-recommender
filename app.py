@@ -57,7 +57,7 @@ def main() -> None:
     }
     filtered = data.apply_filters(tuple(selected_genres), None, None, None, None)
 
-    tabs = st.tabs(["🏠 Home", "📽️ My Library", "🔍 Search Movies, TV & People", "🏆 Top 10", "⚖️ Compare", "🧬 Taste DNA", "💬 Asystent AI"])
+    tabs = st.tabs(["🏠 Home", "📽️ My Library", "🔍 Search Movies, TV & People", "🏆 Top 10", "⚖️ Compare", "🧬 Taste DNA", "💬 AI Assistant"])
     
     with tabs[0]:
         home.render(filters)
