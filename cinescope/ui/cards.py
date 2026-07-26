@@ -40,6 +40,10 @@ def render_rec_card(col, item: dict, providers: list[dict] | None = None, sectio
         genres = get_local_genres(item["title"])
         st.markdown(poster_html(item["poster"], item["rating"], item["rating"] >= 8.0), unsafe_allow_html=True)
         st.markdown(f"**{item['title']}**")
+        if "match_score" in item:
+            st.markdown(f"<div style='margin-bottom:4px;'><span style='background:rgba(245,197,24,0.15);color:#F5C518;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600;'>🎯 {item['match_score']}% Match</span></div>", unsafe_allow_html=True)
+        if "match_reason" in item and item["match_reason"]:
+            st.caption(f"💡 {item['match_reason']}")
         if genres:
             st.markdown(genre_chips_html(genres), unsafe_allow_html=True)
         if providers:

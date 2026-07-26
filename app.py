@@ -8,7 +8,9 @@ import streamlit as st
 
 from cinescope import data, state, tmdb
 from cinescope.ui import home, sidebar, styles
-from cinescope.ui.tabs import compare, library, search, taste_dna, top10, assistant
+from cinescope.ui.tabs import assistant, compare, library, roulette, search, taste_dna, top10
+
+from cinescope.i18n import t
 
 _FOOTER_HTML = """
 <div style="text-align:center;padding:30px 0 10px;color:#444;font-size:0.78rem;line-height:2;">
@@ -47,17 +49,21 @@ def main() -> None:
     state.init()
     _check_prerequisites()
 
-    st.title("🎬 CineScope")
-    st.caption("Discover movies & shows you'll love · Powered by TMDB")
-
     selected_genres, provider_ids = sidebar.render()
+
+    st.title(t("app_title"))
+    st.caption(t("app_tagline"))
+
     filters = {
         "genres": selected_genres,
         "provider_ids": provider_ids,
     }
     filtered = data.apply_filters(tuple(selected_genres), None, None, None, None)
 
-    tabs = st.tabs(["🏠 Home", "📽️ My Library", "🔍 Search Movies, TV & People", "🏆 Top 10", "⚖️ Compare", "🧬 Taste DNA", "💬 AI Assistant"])
+    tabs = st.tabs([
+        t("nav_home"), t("nav_library"), t("nav_search"),
+        t("nav_top10"), t("nav_compare"), t("nav_taste"), t("nav_assistant"), t("nav_roulette")
+    ])
     
     with tabs[0]:
         home.render(filters)
@@ -76,6 +82,10 @@ def main() -> None:
         taste_dna.render()
     with tabs[6]:
         assistant.render()
+    with tabs[7]:
+        roulette.render()
+
+
 
     st.markdown("---")
     st.markdown(_FOOTER_HTML, unsafe_allow_html=True)

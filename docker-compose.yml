@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  cinescope:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    restart: unless-stopped

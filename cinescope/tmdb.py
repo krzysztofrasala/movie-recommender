@@ -45,6 +45,12 @@ def _get(path: str, params: dict | None = None) -> dict | None:
     """GET a TMDB endpoint and return parsed JSON, or None on failure."""
     payload = dict(params or {})
     payload["api_key"] = get_api_key()
+    if "language" not in payload:
+        try:
+            from cinescope.i18n import get_tmdb_language
+            payload["language"] = get_tmdb_language()
+        except Exception:
+            payload["language"] = "en-US"
     try:
         response = _session().get(f"{BASE_URL}/{path}", params=payload, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
@@ -52,6 +58,7 @@ def _get(path: str, params: dict | None = None) -> dict | None:
     except (requests.RequestException, ValueError) as exc:
         logger.warning("TMDB GET /%s failed: %s", path, exc)
         return None
+
 
 
 def poster_url(path: str | None, size: str = "w500") -> str:
@@ -71,6 +78,10 @@ def _movie_summary(m: dict) -> dict:
         "poster": poster_url(m.get("poster_path")),
         "overview": m.get("overview", ""),
     }
+
+
+_tv_summary = _movie_summary
+
 
 
 def _cast_details(cast: list[dict]) -> list[dict]:
@@ -379,7 +390,7 @@ def fetch_providers_list(region: str = DEFAULT_REGION) -> list[dict]:
     results = sorted(d.get("results", []), key=lambda p: p.get("display_priority", 999))
     return [
         {"id": p["provider_id"], "name": p["provider_name"], "logo": f"{IMAGE_BASE_URL}/original{p['logo_path']}"}
-        for p in results[:12]
+        for p in results[:20]
         if p.get("logo_path")
     ]
 
@@ -417,3 +428,41 @@ def fetch_providers_batch(movie_ids: list[int], region: str = DEFAULT_REGION) ->
     with ThreadPoolExecutor(max_workers=10) as executor:
         results = list(executor.map(lambda mid: fetch_movie_providers(mid, region), movie_ids))
     return dict(zip(movie_ids, results, strict=True))
+
+
+@st.cache_data(ttl=DAY)
+def fetch_movie_trailer(movie_id: int) -> str | None:
+    """Fetch YouTube trailer key for a movie or TV show."""
+    d = _get(f"movie/{movie_id}/videos")
+    if not d or "results" not in d:
+        d = _get(f"tv/{movie_id}/videos")
+    if not d or "results" not in d:
+        return None
+
+    results = d.get("results", [])
+    for v in results:
+        if v.get("site") == "YouTube" and v.get("type") == "Trailer" and v.get("key"):
+            return v.get("key")
+    for v in results:
+        if v.get("site") == "YouTube" and v.get("key"):
+            return v.get("key")
+    return None
+
+
+@st.cache_data(ttl=DAY)
+def search_person(query: str) -> list[dict]:
+    """Search for actors or directors by name to get person ID."""
+    d = _get("search/person", {"query": query})
+    if not d:
+        return []
+    return [
+        {
+            "id": p["id"],
+            "name": p["name"],
+            "known_for_department": p.get("known_for_department"),
+            "profile_path": poster_url(p.get("profile_path")),
+        }
+        for p in d.get("results", [])
+    ]
+
+

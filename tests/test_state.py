@@ -71,3 +71,25 @@ def test_search_history_capped(clean_session_state):
     for i in range(state.MAX_SEARCH_HISTORY + 5):
         state.set_recommendations([], f"Movie {i}")
     assert len(clean_session_state["search_history"]) == state.MAX_SEARCH_HISTORY
+
+
+def test_export_import_user_data_json(clean_session_state):
+    clean_session_state["user_ratings"] = {101: 4}
+    clean_session_state["rated_movies_info"] = {101: {"title": "Inception", "poster": "p.jpg"}}
+    state.add_to_watchlist("Interstellar", "p2.jpg", 8.6)
+
+    exported = state.export_user_data_json()
+    assert "Inception" in exported
+    assert "Interstellar" in exported
+
+    # Clear state and restore
+    clean_session_state["watchlist"] = []
+    clean_session_state["user_ratings"] = {}
+    clean_session_state["rated_movies_info"] = {}
+
+    success = state.import_user_data_json(exported)
+    assert success is True
+    assert len(clean_session_state["watchlist"]) == 1
+    assert clean_session_state["watchlist"][0]["title"] == "Interstellar"
+    assert clean_session_state["user_ratings"].get(101) == 4
+

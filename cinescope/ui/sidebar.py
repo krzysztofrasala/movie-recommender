@@ -1,12 +1,29 @@
-"""Sidebar: filters, user stats, search history, watchlist and ratings."""
+"""Sidebar: filters, language switcher, stats, watchlist, ratings and settings backup."""
 
 from __future__ import annotations
 
 import streamlit as st
 
-from cinescope import data, state, tmdb
+from cinescope import data, i18n, state, tmdb
+from cinescope.i18n import t
 from cinescope.recommender import recommend
 from cinescope.ui.html import rating_color
+
+
+def _render_language_switcher() -> None:
+    current_lang = i18n.get_lang()
+    index = 0 if current_lang == "PL" else 1
+    selected = st.radio(
+        t("filter_language"),
+        ["PL 🇵🇱", "EN 🇬🇧"],
+        index=index,
+        horizontal=True,
+        key="lang_radio_select",
+    )
+    new_lang = "PL" if "PL" in selected else "EN"
+    if new_lang != current_lang:
+        st.session_state.lang = new_lang
+        st.rerun()
 
 
 def _render_stats() -> None:
@@ -42,11 +59,11 @@ def _render_search_history() -> None:
 
 def _render_watchlist() -> None:
     st.markdown("---")
-    st.header("❤️ My Watchlist")
+    st.header(t("watchlist_title"))
     if not st.session_state.watchlist:
         st.markdown(
-            '<div style="color:#555;font-size:0.85rem;text-align:center;padding:20px 0;">'
-            "No movies yet.<br>Add some from recommendations!</div>",
+            f'<div style="color:#555;font-size:0.85rem;text-align:center;padding:20px 0;">'
+            f"{t('watchlist_empty')}</div>",
             unsafe_allow_html=True,
         )
         return
@@ -82,16 +99,44 @@ def _render_ratings() -> None:
         )
 
 
+def _render_backup_settings() -> None:
+    st.markdown("---")
+    with st.expander(t("settings_backup"), expanded=False):
+        json_data = state.export_user_data_json()
+        st.download_button(
+            label=t("export_data"),
+            data=json_data,
+            file_name="cinescope_backup.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+
+        uploaded_file = st.file_uploader(t("restore_data"), type=["json"], key="sidebar_import_file")
+        if uploaded_file is not None:
+            if st.button("🔄 Import Data", use_container_width=True, key="btn_do_import"):
+                try:
+                    content = uploaded_file.read().decode("utf-8")
+                    if state.import_user_data_json(content):
+                        st.toast("✅ Data imported successfully!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid backup file format.")
+                except Exception as e:
+                    st.error(f"Failed to import data: {e}")
+
+
 def render() -> tuple[list[str], set[int]]:
     """Render the sidebar and return (selected genres, provider ids)."""
     with st.sidebar:
+        _render_language_switcher()
+        st.markdown("---")
         st.header("🔍 Filters")
-        selected_genres = st.multiselect("Genre", data.all_genres())
+        selected_genres = st.multiselect(t("filter_genre"), data.all_genres())
 
         providers = tmdb.fetch_providers_list()
         provider_name_to_id = {p["name"]: p["id"] for p in providers}
         selected_provider_names = st.multiselect(
-            "Streaming on",
+            t("filter_streaming"),
             options=list(provider_name_to_id.keys()),
             placeholder="Any platform...",
         )
@@ -101,5 +146,6 @@ def render() -> tuple[list[str], set[int]]:
         _render_search_history()
         _render_watchlist()
         _render_ratings()
+        _render_backup_settings()
 
     return selected_genres, selected_provider_ids

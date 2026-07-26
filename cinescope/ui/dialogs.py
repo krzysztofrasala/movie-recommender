@@ -21,9 +21,10 @@ def _render_cast(cast_details: list[dict]) -> None:
 
 def _render_trailer_and_watch_link(trailer: str | None, title: str) -> None:
     if trailer:
-        with st.expander("▶️ Watch Trailer"):
-            st.video(trailer)
+        url = trailer if trailer.startswith("http") else f"https://www.youtube.com/watch?v={trailer}"
+        st.video(url)
     st.link_button("Find where to watch 📺", justwatch_url(title), use_container_width=True)
+
 
 
 @st.dialog("🎬 Movie Details", width="large")

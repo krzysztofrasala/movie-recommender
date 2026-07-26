@@ -1,10 +1,11 @@
-"""'Search' tab: movies, TV shows, people and natural-language discovery."""
+"""'Search' tab: movies, TV shows, people, natural-language discovery and Pro Discover filters."""
 
 from __future__ import annotations
 
 import streamlit as st
 
 from cinescope import state, tmdb
+from cinescope.i18n import t
 from cinescope.nl_query import GENRE_KEYWORDS, SORT_KEYWORDS, parse_natural_query
 from cinescope.recommender import more_like_this
 from cinescope.ui.dialogs import show_movie_details, show_tv_details
@@ -29,6 +30,18 @@ _PLACEHOLDERS = {
     "🎭 People (Actors & Directors)": "e.g. Christopher Nolan, Meryl Streep...",
 }
 
+LANG_OPTIONS = {
+    "Any language / Każdy język": None,
+    "🇵🇱 Polish (Polski)": "pl",
+    "🇬🇧 English (Angielski)": "en",
+    "🇰🇷 Korean (Koreański)": "ko",
+    "🇫🇷 French (Francuski)": "fr",
+    "🇪🇸 Spanish (Hiszpański)": "es",
+    "🇯🇵 Japanese (Japoński)": "ja",
+    "🇩🇪 German (Niemiecki)": "de",
+    "🇮🇹 Italian (Włoski)": "it",
+}
+
 
 def _describe_detected_filters(parsed: dict) -> None:
     """Show the user which filters were extracted from their description."""
@@ -49,6 +62,84 @@ def _describe_detected_filters(parsed: dict) -> None:
 
     if not parsed["genres"] and not parsed["year_gte"] and not parsed["year_lte"] and not parsed["vote_gte"]:
         st.warning("No specific filters detected — showing popular results. Try adding a genre like *horror*, *comedy*, *romantic*, etc.")
+
+
+def _render_discover_pro() -> None:
+    st.markdown("### ⚡ Discover Pro Filters")
+    st.caption("Search by specific Actor/Director, Original Language, and Ratings.")
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        person_query = st.text_input(
+            t("search_actor_director"),
+            placeholder=t("actor_placeholder"),
+            key="pro_person_q",
+        )
+    with c2:
+        lang_label = st.selectbox(
+            t("search_language_origin"),
+            options=list(LANG_OPTIONS.keys()),
+            key="pro_lang_select",
+        )
+    with c3:
+        min_vote = st.selectbox(
+            "⭐ Rating Floor",
+            ["Any Rating", "⭐ 7.0+", "⭐ 7.5+", "⭐ 8.0+"],
+            key="pro_vote_select",
+        )
+
+    person_id = None
+    if person_query:
+        persons = tmdb.search_person(person_query)
+        if persons:
+            person_id = persons[0]["id"]
+            st.success(f"Matched person: **{persons[0]['name']}** ({persons[0].get('known_for_department', 'Film')})")
+        else:
+            st.warning(f"No actor or director found matching '{person_query}'")
+
+    lang_code = LANG_OPTIONS.get(lang_label)
+    vote_val = 0.0
+    if "7.0+" in min_vote:
+        vote_val = 7.0
+    elif "7.5+" in min_vote:
+        vote_val = 7.5
+    elif "8.0+" in min_vote:
+        vote_val = 8.0
+
+    params: dict = {
+        "sort_by": "popularity.desc",
+        "vote_count.gte": 20,
+    }
+    if vote_val > 0:
+        params["vote_average.gte"] = vote_val
+    if lang_code:
+        params["with_original_language"] = lang_code
+    if person_id:
+        params["with_cast"] = person_id
+
+    with st.spinner("Discovering..."):
+        res = tmdb._get("discover/movie", params)
+
+    movies = [tmdb._movie_summary(m) for m in res.get("results", [])] if res else []
+    if not movies:
+        st.markdown(_NO_RESULTS_HTML, unsafe_allow_html=True)
+        return
+
+    for row_start in [0, 5]:
+        row = movies[row_start:row_start + 5]
+        if not row:
+            break
+        cols = st.columns(5)
+        for i, m in enumerate(row):
+            with cols[i]:
+                st.markdown(poster_html(m["poster"], m["rating"], m["rating"] >= 8.0, m.get("year")), unsafe_allow_html=True)
+                st.markdown(f"**{m['title']}**")
+                if st.button("ℹ️ Details", key=f"pro_d_{row_start}_{m['id']}", use_container_width=True):
+                    show_movie_details(m["id"], m["title"], m["poster"], m["rating"], m["overview"])
+                if st.button("🎬 Similar", key=f"pro_s_{row_start}_{m['id']}", use_container_width=True):
+                    with st.spinner("Loading..."):
+                        state.set_recommendations(more_like_this(m["id"], m["title"]), m["title"])
+                    st.rerun()
 
 
 def _render_nl_search() -> None:
@@ -105,19 +196,17 @@ def _render_person_results(query: str) -> None:
         for p in persons:
             c1, c2 = st.columns([1, 6])
             with c1:
-                st.image(p["photo"])
+                st.image(p["profile_path"])
             with c2:
                 st.subheader(p["name"])
-                st.caption(f"Known for: **{p['role']}**")
-                if p["known_for"]:
-                    st.caption("🎬 " + " · ".join(p["known_for"]))
+                st.caption(f"Known for: **{p.get('known_for_department', 'Film')}**")
                 if st.button("View filmography", key=f"pf_{p['id']}"):
                     st.session_state.selected_person_id = p["id"]
                     st.session_state.selected_person_name = p["name"]
                     st.rerun()
             st.divider()
 
-    if st.session_state.selected_person_id:
+    if st.session_state.get("selected_person_id"):
         _render_filmography()
 
 
@@ -178,15 +267,18 @@ def _render_title_results(query: str, is_tv: bool) -> None:
 
 def render() -> None:
     search_type = st.radio(
-        "Search for:",
-        ["🎬 Movies", "📺 TV Shows", "🎭 People (Actors & Directors)", "🧠 Describe It"],
+        "Search Mode:",
+        ["🎬 Movies", "📺 TV Shows", "🎭 People (Actors & Directors)", "⚡ Discover Pro (Actors, Lang)", "🧠 Describe It"],
         horizontal=True,
     )
     if search_type == "🧠 Describe It":
         _render_nl_search()
         return
+    elif search_type == "⚡ Discover Pro (Actors, Lang)":
+        _render_discover_pro()
+        return
 
-    query = st.text_input("Search", placeholder=_PLACEHOLDERS[search_type], label_visibility="collapsed", key="tab2q")
+    query = st.text_input("Search", placeholder=_PLACEHOLDERS.get(search_type, "..."), label_visibility="collapsed", key="tab2q")
     if not query:
         return
 
@@ -194,8 +286,8 @@ def render() -> None:
         _render_person_results(query)
     else:
         _render_title_results(query, is_tv=search_type == "📺 TV Shows")
-        
-    if st.session_state.recommendations:
+
+    if st.session_state.get("recommendations"):
         st.markdown("---")
         c1, c2 = st.columns([9, 1])
         with c1:

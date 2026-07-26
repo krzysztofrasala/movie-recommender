@@ -82,9 +82,15 @@ def get_neighbors() -> dict[str, np.ndarray]:
     return load_model()[1]
 
 
+def get_vectors():
+    """Return feature vectors matrix and boolean flag indicating if vectors are dense."""
+    _, _, vectors, is_dense = load_model()
+    return vectors, is_dense
+
+
 def pair_similarity(idx1: int, idx2: int) -> float:
     """Cosine similarity between two movies' tag vectors (0..1), computed on demand."""
-    _, _, vectors, is_dense = load_model()
+    vectors, is_dense = get_vectors()
     v1, v2 = vectors[idx1], vectors[idx2]
     
     if is_dense:
@@ -113,8 +119,15 @@ def get_local_genres(title: str) -> list[str]:
 
 
 @st.cache_data
-def apply_filters(genres: tuple, year_min: int | None = None, year_max: int | None = None, runtime_max: int | None = None, vote_min: float | None = None) -> pd.DataFrame:
-    """Filter the local library by genre membership, release-year range, max runtime, and min rating."""
+def apply_filters(
+    genres: tuple,
+    year_min: int | None = None,
+    year_max: int | None = None,
+    runtime_max: int | None = None,
+    vote_min: float | None = None,
+    sort_by: str = "default",
+) -> pd.DataFrame:
+    """Filter and sort the local library by genres, release year, runtime, rating, and sort order."""
     df = get_movies()
     if genres:
         df = df[df["genres_list"].apply(lambda g: isinstance(g, list) and any(x in g for x in genres))]
@@ -131,7 +144,22 @@ def apply_filters(genres: tuple, year_min: int | None = None, year_max: int | No
     if vote_min is not None:
         mask &= (df["vote_average"] >= vote_min)
         
-    return df[mask]
+    filtered_df = df[mask].copy()
+
+    if sort_by == "vote_desc":
+        filtered_df = filtered_df.sort_values(by="vote_average", ascending=False)
+    elif sort_by == "vote_asc":
+        filtered_df = filtered_df.sort_values(by="vote_average", ascending=True)
+    elif sort_by == "year_desc":
+        filtered_df = filtered_df.sort_values(by="year", ascending=False)
+    elif sort_by == "year_asc":
+        filtered_df = filtered_df.sort_values(by="year", ascending=True)
+    elif sort_by == "runtime_desc":
+        filtered_df = filtered_df.sort_values(by="runtime", ascending=False)
+    elif sort_by == "title_asc":
+        filtered_df = filtered_df.sort_values(by="title", ascending=True)
+
+    return filtered_df
 
 
 def all_genres() -> list[str]:

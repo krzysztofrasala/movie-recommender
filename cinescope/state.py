@@ -94,8 +94,49 @@ def set_recommendations(recs: list[dict], source_title: str, add_to_history: boo
     """Store a recommendation set and optionally remember its source in search history."""
     st.session_state.recommendations = recs
     st.session_state.rec_source = source_title
-    
+
     if add_to_history:
         history = [h for h in st.session_state.search_history if h != source_title]
         history.insert(0, source_title)
         st.session_state.search_history = history[:MAX_SEARCH_HISTORY]
+
+
+def export_user_data_json() -> str:
+    """Serialize the user's watchlist, ratings and rated_movies_info into JSON format."""
+    payload = {
+        "version": "1.0",
+        "watchlist": st.session_state.get("watchlist", []),
+        "user_ratings": st.session_state.get("user_ratings", {}),
+        "rated_movies_info": st.session_state.get("rated_movies_info", {}),
+    }
+    return json.dumps(payload, indent=2)
+
+
+def import_user_data_json(json_str: str) -> bool:
+    """Parse JSON string and restore watchlist and user ratings. Returns True on success."""
+    try:
+        data = json.loads(json_str)
+        if not isinstance(data, dict):
+            return False
+        if "watchlist" in data and isinstance(data["watchlist"], list):
+            st.session_state.watchlist = data["watchlist"]
+        if "user_ratings" in data and isinstance(data["user_ratings"], dict):
+            parsed_ratings = {}
+            for k, v in data["user_ratings"].items():
+                try:
+                    parsed_ratings[int(k)] = int(v)
+                except ValueError:
+                    parsed_ratings[k] = v
+            st.session_state.user_ratings = parsed_ratings
+        if "rated_movies_info" in data and isinstance(data["rated_movies_info"], dict):
+            parsed_info = {}
+            for k, v in data["rated_movies_info"].items():
+                try:
+                    parsed_info[int(k)] = v
+                except ValueError:
+                    parsed_info[k] = v
+            st.session_state.rated_movies_info = parsed_info
+        return True
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return False
+

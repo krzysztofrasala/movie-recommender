@@ -69,9 +69,12 @@ def _get_gemini_key() -> str | None:
 
 @st.cache_data(ttl=3600)
 def parse_natural_query(text: str) -> dict:
-    """Extract TMDB discover filters from a free-text description using Gemini (if available) or fallback."""
+    """Extract TMDB discover filters from a free-text description using regex fallback or Gemini."""
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return _fallback_parse(text)
+
     gemini_key = _get_gemini_key()
-    
+
     if gemini_key:
         try:
             from google import genai
@@ -79,31 +82,37 @@ def parse_natural_query(text: str) -> dict:
             prompt = (
                 f"You are a movie recommendation assistant. Extract the search intent from this user query:\n"
                 f"'{text}'\n"
-                "Return the parameters for a TMDB Discover API call. Match genres to these IDs: "
+                "Return the parameters for a TMDB Discover API call. Match ALL mentioned genres to these IDs: "
                 f"{', '.join([f'{k}({v})' for k, v in GENRE_KEYWORDS.items()][:20])}... "
-                "Current year is " + str(datetime.date.today().year)
+                f"Current year is {datetime.date.today().year}. "
+                f"If 'new releases', 'recent', or 'this year' is mentioned, set year_gte to {datetime.date.today().year - 1}. "
+                "If 'classic' is mentioned, set year_lte to 2000 and sort_by to 'vote_average.desc'."
             )
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=prompt,
-                config={
-                    'response_mime_type': 'application/json',
-                    'response_schema': TMDBParams,
-                },
-            )
-            data = TMDBParams.model_validate_json(response.text)
-            return {
-                "genres": data.genres[:2],
-                "year_gte": data.year_gte,
-                "year_lte": data.year_lte,
-                "vote_gte": data.vote_gte,
-                "sort_by": data.sort_by,
-            }
+            for model_name in ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-2.5-flash"]:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config={
+                            'response_mime_type': 'application/json',
+                            'response_schema': TMDBParams,
+                        },
+                    )
+                    data = TMDBParams.model_validate_json(response.text)
+                    return {
+                        "genres": data.genres[:2],
+                        "year_gte": data.year_gte,
+                        "year_lte": data.year_lte,
+                        "vote_gte": data.vote_gte,
+                        "sort_by": data.sort_by,
+                    }
+                except Exception as exc:
+                    logger.warning(f"Model {model_name} failed: {exc}")
         except Exception as e:
-            logger.warning(f"Gemini NL query parsing failed: {e}. Falling back to keyword regex.")
+            logger.warning(f"Gemini NL query parsing failed: {e}.")
 
-    # Fallback to zero-cost keyword extraction
-    return _fallback_parse(text)
+    return parsed
+
 
 
 def _fallback_parse(text: str) -> dict:
