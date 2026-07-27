@@ -7,12 +7,13 @@ import streamlit as st
 
 from cinescope import state, tmdb
 from cinescope.config import GENRE_NAME_TO_ID
+from cinescope.i18n import get_tmdb_language, t
 from cinescope.ui.cards import render_rec_card
 from cinescope.ui.dialogs import show_movie_details
 
 
 def render() -> None:
-    st.header("🎲 Movie & TV Show Roulette")
+    st.header(t("nav_roulette"))
     st.caption("Don't know what to watch tonight? Pick your mood & runtime and spin the wheel!")
 
     col1, col2, col3, col4 = st.columns(4)
@@ -42,12 +43,11 @@ def render() -> None:
 
     col_btn, _ = st.columns([1, 3])
     with col_btn:
-        spin = st.button("🎲 SPIN THE WHEEL", type="primary", use_container_width=True)
+        spin = st.button(t("spin_button"), type="primary", use_container_width=True)
 
     if spin or "roulette_winner" in st.session_state:
         if spin:
             with st.spinner("🌀 Spinning the roulette wheel..."):
-                # Prepare query parameters for TMDB Discover
                 genre_id = GENRE_NAME_TO_ID.get(mood_genre) if mood_genre != "Any Mood" else None
                 vote_min = 0.0
                 if "7.0+" in min_rating:
@@ -61,7 +61,7 @@ def render() -> None:
                     "sort_by": "popularity.desc",
                     "vote_average.gte": vote_min,
                     "vote_count.gte": 50,
-                    "language": "en-US",
+                    "language": get_tmdb_language(),
                 }
                 if genre_id:
                     params["with_genres"] = genre_id
@@ -87,7 +87,6 @@ def render() -> None:
                 else:
                     st.session_state.roulette_winner = None
 
-
         winner = st.session_state.get("roulette_winner")
         if winner:
             st.markdown(
@@ -106,7 +105,7 @@ def render() -> None:
                 st.subheader(winner["title"])
                 st.caption(f"⭐ {winner['rating']} · {winner.get('year', '')}")
                 st.write(winner.get("overview", "No description available."))
-                
+
                 trailer_key = tmdb.fetch_movie_trailer(winner["id"])
                 if trailer_key:
                     st.markdown("**▶️ Trailer Preview:**")

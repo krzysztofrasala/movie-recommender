@@ -5,37 +5,35 @@ from __future__ import annotations
 import streamlit as st
 
 from cinescope import state, tmdb
+from cinescope.config import GENRE_NAME_TO_ID
 from cinescope.data import get_local_genres
+from cinescope.i18n import t
 from cinescope.recommender import more_like_this
 from cinescope.ui.dialogs import show_movie_details
 from cinescope.ui.html import genre_chips_html, justwatch_url, poster_html, provider_logos_html
-from cinescope.config import GENRE_NAME_TO_ID
+
 
 def _apply_global_filters(movie_list: list[dict], filters: dict | None) -> list[dict]:
     if not filters:
         return movie_list
-        
+
     filtered = []
     selected_genres = filters.get("genres", [])
     genre_ids_to_match = {GENRE_NAME_TO_ID.get(g) for g in selected_genres if g in GENRE_NAME_TO_ID}
-    
+
     for m in movie_list:
         if genre_ids_to_match:
             m_genres = set(m.get("genre_ids", []))
             if not any(gid in m_genres for gid in genre_ids_to_match):
                 continue
-                
+
         filtered.append(m)
-        
+
     return filtered
 
-def render_rec_card(col, item: dict, providers: list[dict] | None = None, section: str = "rec") -> None:
-    """Full recommendation card: poster, genres, actions, watchlist and rating.
 
-    ``section`` namespaces the widget keys so the same movie can appear in
-    two sections on one page (e.g. "For You" and "Similar to") without a
-    Streamlit duplicate-key crash.
-    """
+def render_rec_card(col, item: dict, providers: list[dict] | None = None, section: str = "rec") -> None:
+    """Full recommendation card: poster, genres, actions, watchlist and rating."""
     with col:
         genres = get_local_genres(item["title"])
         st.markdown(poster_html(item["poster"], item["rating"], item["rating"] >= 8.0), unsafe_allow_html=True)
@@ -49,15 +47,15 @@ def render_rec_card(col, item: dict, providers: list[dict] | None = None, sectio
         if providers:
             st.markdown(provider_logos_html(providers), unsafe_allow_html=True)
 
-        if st.button("ℹ️ Details", key=f"{section}_rd_{item['id']}", use_container_width=True):
+        if st.button(t("details_btn"), key=f"{section}_rd_{item['id']}", use_container_width=True):
             show_movie_details(item["id"], item["title"], item["poster"], item["rating"], item["overview"])
-        st.link_button("Watch 📺", justwatch_url(item["title"]), use_container_width=True)
+        st.link_button(t("watch_btn"), justwatch_url(item["title"]), use_container_width=True)
 
         in_watchlist = any(m["title"] == item["title"] for m in st.session_state.watchlist)
         if in_watchlist:
-            st.button("❤️ In Watchlist", key=f"{section}_wl_{item['id']}", disabled=True, use_container_width=True)
+            st.button(t("in_watchlist_btn"), key=f"{section}_wl_{item['id']}", disabled=True, use_container_width=True)
         else:
-            if st.button("🤍 Add to Watchlist", key=f"{section}_wl_{item['id']}", use_container_width=True):
+            if st.button(t("add_to_watchlist_btn"), key=f"{section}_wl_{item['id']}", use_container_width=True):
                 if state.add_to_watchlist(item["title"], item["poster"], item["rating"]):
                     st.toast(f"❤️ **{item['title']}** added to watchlist!")
                 st.rerun()
@@ -73,7 +71,7 @@ def render_recommendations(recs: list[dict], filters: dict | None = None, sectio
     """Grid of up to 10 recommendation cards, optionally filtered by provider and global filters."""
     if not recs:
         return
-        
+
     if not pre_filtered:
         recs = _apply_global_filters(recs, filters)
     if not recs:
@@ -126,19 +124,19 @@ def render_movie_row(movie_list: list[dict], key_prefix: str, filters: dict | No
             st.markdown(f"**{title}**")
             if active_provider_ids and providers_map.get(movie_id):
                 st.markdown(provider_logos_html(providers_map[movie_id]), unsafe_allow_html=True)
-            if st.button("ℹ️ Details", key=f"{key_prefix}_d_{movie_id}", use_container_width=True):
+            if st.button(t("details_btn"), key=f"{key_prefix}_d_{movie_id}", use_container_width=True):
                 show_movie_details(movie_id, title, poster, rating, overview)
-            if st.button("🎬 More like this", key=f"{key_prefix}_m_{movie_id}", use_container_width=True):
+            if st.button(t("more_like_this_btn"), key=f"{key_prefix}_m_{movie_id}", use_container_width=True):
                 with st.spinner("Loading..."):
                     state.set_recommendations(more_like_this(movie_id, title), title)
                 st.rerun()
-            st.link_button("Watch 📺", justwatch_url(title), use_container_width=True)
-            
+            st.link_button(t("watch_btn"), justwatch_url(title), use_container_width=True)
+
             in_watchlist = any(mw["title"] == title for mw in st.session_state.watchlist)
             if in_watchlist:
-                st.button("❤️ In Watchlist", key=f"{key_prefix}_wl_{movie_id}", disabled=True, use_container_width=True)
+                st.button(t("in_watchlist_btn"), key=f"{key_prefix}_wl_{movie_id}", disabled=True, use_container_width=True)
             else:
-                if st.button("🤍 Add to Watchlist", key=f"{key_prefix}_wl_{movie_id}", use_container_width=True):
+                if st.button(t("add_to_watchlist_btn"), key=f"{key_prefix}_wl_{movie_id}", use_container_width=True):
                     if state.add_to_watchlist(title, poster, rating):
                         st.toast(f"❤️ **{title}** added to watchlist!")
                     st.rerun()

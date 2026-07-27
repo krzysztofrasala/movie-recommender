@@ -32,21 +32,21 @@ def _render_stats() -> None:
     if total_watchlist == 0 and total_rated == 0:
         return
     st.markdown("---")
-    st.header("📊 Your Stats")
+    st.header(t("your_stats_header"))
     c1, c2 = st.columns(2)
-    c1.metric("Watchlist", total_watchlist)
-    c2.metric("Rated", total_rated)
+    c1.metric(t("watchlist_metric"), total_watchlist)
+    c2.metric(t("rated_metric"), total_rated)
     if total_rated > 0:
         avg = sum(st.session_state.user_ratings.values()) / total_rated
         stars = round(avg + 1)
-        st.caption(f"Your avg: {'★' * stars}{'☆' * (5 - stars)}")
+        st.caption(f"{t('your_avg_rating')}: {'★' * stars}{'☆' * (5 - stars)}")
 
 
 def _render_search_history() -> None:
     if not st.session_state.search_history:
         return
     st.markdown("---")
-    st.header("🕐 Recent Searches")
+    st.header(t("recent_searches_header"))
     movies = data.get_movies()
     for title in st.session_state.search_history:
         if st.button(f"↩ {title}", key=f"hist_{title}", use_container_width=True):
@@ -86,7 +86,7 @@ def _render_ratings() -> None:
     if not st.session_state.rated_movies_info:
         return
     st.markdown("---")
-    st.header("⭐ Your Ratings")
+    st.header(t("your_ratings_header"))
     for movie_id, info in st.session_state.rated_movies_info.items():
         rating = st.session_state.user_ratings.get(movie_id, 0)
         rc = rating_color(rating * 2)
@@ -113,7 +113,7 @@ def _render_backup_settings() -> None:
 
         uploaded_file = st.file_uploader(t("restore_data"), type=["json"], key="sidebar_import_file")
         if uploaded_file is not None:
-            if st.button("🔄 Import Data", use_container_width=True, key="btn_do_import"):
+            if st.button(t("import_data"), use_container_width=True, key="btn_do_import"):
                 try:
                     content = uploaded_file.read().decode("utf-8")
                     if state.import_user_data_json(content):
@@ -130,7 +130,7 @@ def render() -> tuple[list[str], set[int]]:
     with st.sidebar:
         _render_language_switcher()
         st.markdown("---")
-        st.header("🔍 Filters")
+        st.header(t("filters_header"))
         selected_genres = st.multiselect(t("filter_genre"), data.all_genres())
 
         providers = tmdb.fetch_providers_list()
@@ -138,7 +138,7 @@ def render() -> tuple[list[str], set[int]]:
         selected_provider_names = st.multiselect(
             t("filter_streaming"),
             options=list(provider_name_to_id.keys()),
-            placeholder="Any platform...",
+            placeholder=t("any_platform"),
         )
         selected_provider_ids = {provider_name_to_id[n] for n in selected_provider_names}
 

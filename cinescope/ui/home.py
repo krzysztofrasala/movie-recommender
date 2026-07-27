@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import datetime
 import streamlit as st
 
 from cinescope import state, tmdb
+from cinescope.i18n import t
 from cinescope.recommender import more_like_this, recommend_for_you
 from cinescope.ui.cards import render_movie_row, render_recommendations
 from cinescope.ui.dialogs import show_movie_details
 
 TRENDING_PAGE_SIZE = 5
 TRENDING_MAX_INDEX = 15
+
 
 def _is_filtered(filters: dict) -> bool:
     if not filters:
@@ -27,11 +28,10 @@ def _render_film_of_the_day() -> None:
     motd = tmdb.fetch_movie_of_the_day()
     if motd and motd["backdrop"]:
         overview = motd["overview"][:240] + ("..." if len(motd["overview"]) > 240 else "")
-        # Class-based markup so media queries in styles.py can adapt padding
-        # and font sizes on tablet/mobile without editing inline CSS.
+        label_motd = t("film_of_day").upper()
         st.markdown(f"""
         <div class="cs-motd-banner" style="background-image: linear-gradient(to right, rgba(5,5,5,0.97) 30%, rgba(5,5,5,0.55) 70%, rgba(5,5,5,0.1)), url({motd['backdrop']});">
-            <div class="cs-motd-eyebrow">🎬 &nbsp; FILM OF THE DAY</div>
+            <div class="cs-motd-eyebrow">🎬 &nbsp; {label_motd}</div>
             <div class="cs-motd-title">{motd['title']}</div>
             <div class="cs-motd-rating">⭐ {motd['rating']}/10</div>
             <div class="cs-motd-overview">{overview}</div>
@@ -39,24 +39,24 @@ def _render_film_of_the_day() -> None:
         """, unsafe_allow_html=True)
         c1, c2, _ = st.columns([1, 1, 6])
         with c1:
-            if st.button("🎯 Find Similar", key="motd_rec", use_container_width=True):
+            if st.button(t("more_like_this_btn"), key="motd_rec", use_container_width=True):
                 with st.spinner("Loading..."):
                     state.set_recommendations(more_like_this(motd["id"], motd["title"]), motd["title"])
                 st.rerun()
         with c2:
-            if st.button("ℹ️ Details", key="motd_det", use_container_width=True):
+            if st.button(t("details_btn"), key="motd_det", use_container_width=True):
                 show_movie_details(motd["id"], motd["title"], motd["poster"], motd["rating"], motd["overview"])
 
     st.markdown("---")
 
 
 def _render_trending(filters: dict) -> None:
-    st.subheader("🔥 Trending Today")
-    
+    st.subheader(t("trending_today"))
+
     if _is_filtered(filters):
         from cinescope.config import GENRE_NAME_TO_ID
         genre_ids = [GENRE_NAME_TO_ID[g] for g in filters.get("genres", []) if g in GENRE_NAME_TO_ID]
-        
+
         trending = tmdb.filtered_discover(
             genres=tuple(genre_ids),
             year_gte=None,
@@ -65,7 +65,7 @@ def _render_trending(filters: dict) -> None:
             vote_gte=None,
             provider_ids=tuple(filters.get("provider_ids", [])) if filters.get("provider_ids") else None,
             sort_by="popularity.desc",
-            limit=20
+            limit=20,
         )
         if trending:
             prev_col, _, next_col = st.columns([1, 8, 1])
@@ -98,7 +98,7 @@ def _render_trending(filters: dict) -> None:
 def _render_for_you(filters: dict) -> None:
     for_you = recommend_for_you()
     if for_you:
-        st.subheader("💡 Recommended For You")
+        st.subheader(t("recommended_for_you"))
         st.caption("Based on movies you rated 4–5 stars")
         render_recommendations(for_you, filters=filters, section="foryou")
         st.markdown("---")
@@ -110,7 +110,7 @@ def _render_active_recommendations(filters: dict) -> None:
         with c1:
             st.subheader(f"🎯 Similar to: *{st.session_state.rec_source}*")
         with c2:
-            if st.button("❌ Close", key="close_home_rec"):
+            if st.button(t("close_btn"), key="close_home_rec"):
                 st.session_state.recommendations = []
                 st.session_state.rec_source = None
                 st.rerun()
