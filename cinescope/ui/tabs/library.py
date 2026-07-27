@@ -9,6 +9,7 @@ import streamlit as st
 
 from cinescope import state, tmdb
 from cinescope.config import DECADES, MOODS
+from cinescope.i18n import t
 from cinescope.recommender import recommend
 
 _EMPTY_FILTERS_HTML = (
@@ -18,13 +19,15 @@ _EMPTY_FILTERS_HTML = (
     '<div style="font-size:0.85rem;margin-top:6px;">Try adjusting the genre or year range.</div></div>'
 )
 
-SORT_OPTIONS = {
-    "Popularity (Default)": "default",
-    "⭐ Highest Rating": "vote_desc",
-    "📅 Release Year (Newest)": "year_desc",
-    "⏱️ Runtime (Longest)": "runtime_desc",
-    "🔤 Title (A–Z)": "title_asc",
-}
+
+def get_sort_options() -> dict[str, str]:
+    return {
+        t("sort_default"): "default",
+        t("sort_vote"): "vote_desc",
+        t("sort_year"): "year_desc",
+        t("sort_runtime"): "runtime_desc",
+        t("sort_title"): "title_asc",
+    }
 
 
 def render(filtered: pd.DataFrame) -> None:
@@ -32,25 +35,27 @@ def render(filtered: pd.DataFrame) -> None:
         st.markdown(_EMPTY_FILTERS_HTML, unsafe_allow_html=True)
         return
 
+    sort_options = get_sort_options()
+
     col_input, col_sort, col_button = st.columns([3, 2, 1])
     with col_input:
-        query = st.text_input("Search", placeholder="Search your library...", label_visibility="collapsed")
+        query = st.text_input("Search", placeholder=t("search_library_placeholder"), label_visibility="collapsed")
     with col_sort:
         sort_label = st.selectbox(
             "Sort by",
-            list(SORT_OPTIONS.keys()),
+            list(sort_options.keys()),
             label_visibility="collapsed",
             key="lib_sort_select",
         )
     with col_button:
-        if st.button("🎲 Surprise Me!", use_container_width=True):
+        if st.button(t("surprise_me_btn"), use_container_width=True):
             random_title = filtered.sample(1).iloc[0]["title"]
             with st.spinner(f"Picking {random_title}..."):
                 state.set_recommendations(recommend(random_title), f"{random_title} 🎲")
             st.rerun()
 
     # Apply sorting
-    sort_key = SORT_OPTIONS[sort_label]
+    sort_key = sort_options[sort_label]
     if sort_key == "vote_desc":
         filtered = filtered.sort_values(by="vote_average", ascending=False)
     elif sort_key == "year_desc":
@@ -60,16 +65,18 @@ def render(filtered: pd.DataFrame) -> None:
     elif sort_key == "title_asc":
         filtered = filtered.sort_values(by="title", ascending=True)
 
-    st.markdown("**Pick a mood:**")
+    st.markdown(f"**{t('pick_a_mood')}**")
     mood_cols = st.columns(len(MOODS))
-    for i, (label, genre_id) in enumerate(MOODS.items()):
+    mood_keys = ["mood_comedy", "mood_horror", "mood_romance", "mood_action", "mood_thriller", "mood_scifi", "mood_drama", "mood_animation"]
+    for i, (orig_label, genre_id) in enumerate(MOODS.items()):
+        translated_mood = t(mood_keys[i]) if i < len(mood_keys) else orig_label
         with mood_cols[i]:
-            if st.button(label, use_container_width=True, key=f"mood_{genre_id}"):
+            if st.button(translated_mood, use_container_width=True, key=f"mood_{genre_id}"):
                 with st.spinner("Loading..."):
-                    state.set_recommendations(tmdb.discover_by_genre(genre_id), label, add_to_history=False)
+                    state.set_recommendations(tmdb.discover_by_genre(genre_id), translated_mood, add_to_history=False)
                 st.rerun()
 
-    st.markdown("**Browse by decade:**")
+    st.markdown(f"**{t('browse_by_decade')}**")
     decade_cols = st.columns(len(DECADES))
     for i, (label, (start, end)) in enumerate(DECADES.items()):
         with decade_cols[i]:
@@ -84,15 +91,18 @@ def render(filtered: pd.DataFrame) -> None:
         st.warning(f'No movies found for "{query}".')
         return
 
+    v_dropdown = t("view_dropdown")
+    v_grid = t("view_grid")
+
     c1, c2 = st.columns([3, 1])
     with c1:
         st.markdown(f"Showing **{len(results)}** movies matching criteria")
     with c2:
-        view_mode = st.radio("View", ["Dropdown", "Cards Grid"], horizontal=True, label_visibility="collapsed", key="lib_view_mode")
+        view_mode = st.radio("View", [v_dropdown, v_grid], horizontal=True, label_visibility="collapsed", key="lib_view_mode")
 
-    if view_mode == "Dropdown":
+    if view_mode == v_dropdown:
         selected = st.selectbox(f"Select a movie ({len(results)} results)", results["title"].values)
-        if st.button("Get 10 Recommendations", use_container_width=True):
+        if st.button(t("get_recommendations_btn"), use_container_width=True):
             with st.spinner("Finding recommendations..."):
                 state.set_recommendations(recommend(selected), selected)
             st.rerun()
@@ -123,7 +133,7 @@ def render(filtered: pd.DataFrame) -> None:
         with c1:
             st.subheader(f"🎯 Similar to: *{st.session_state.rec_source}*")
         with c2:
-            if st.button("❌ Close", key="close_lib_rec"):
+            if st.button(t("close_btn"), key="close_lib_rec"):
                 st.session_state.recommendations = []
                 st.session_state.rec_source = None
                 st.rerun()

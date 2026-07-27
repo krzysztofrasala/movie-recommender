@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from cinescope import data, recommender, tmdb
+from cinescope.i18n import t
 from cinescope.ui.cards import render_recommendations
 from cinescope.ui.html import format_runtime, genre_chips_html, poster_html, rating_color
 
@@ -13,18 +14,18 @@ def render() -> None:
     movies = data.get_movies()
     all_titles = list(movies["title"].values)
 
-    subtab1, subtab2 = st.tabs(["⚖️ Compare Two Movies", "👥 What to Watch Together?"])
+    subtab1, subtab2 = st.tabs([t("tab_compare_movies"), t("tab_watch_together")])
 
     with subtab1:
-        st.caption("Pick two movies to compare side by side.")
+        st.caption(t("pick_two_movies"))
 
         col1, col2 = st.columns(2)
         with col1:
-            movie1 = st.selectbox("First movie", all_titles, key="cmp1")
+            movie1 = st.selectbox(t("first_movie"), all_titles, key="cmp1")
         with col2:
-            movie2 = st.selectbox("Second movie", all_titles, key="cmp2", index=min(1, len(all_titles) - 1))
+            movie2 = st.selectbox(t("second_movie"), all_titles, key="cmp2", index=min(1, len(all_titles) - 1))
 
-        if st.button("⚖️ Compare Movies", use_container_width=True):
+        if st.button(t("compare_movies_btn"), use_container_width=True):
             m1_id = int(movies[movies["title"] == movie1].iloc[0]["movie_id"])
             m2_id = int(movies[movies["title"] == movie2].iloc[0]["movie_id"])
             with st.spinner("Loading..."):
@@ -36,11 +37,13 @@ def render() -> None:
                 idx2 = movies[movies["title"] == movie2].index[0]
                 score = round(data.pair_similarity(idx1, idx2) * 100, 1)
                 score_color = rating_color(score / 10)
+                lbl_similarity = t("content_similarity")
+                lbl_basis = t("similarity_basis")
                 st.markdown(
                     f'<div style="text-align:center;padding:20px;">'
-                    f'<div style="font-size:0.8rem;color:#888;letter-spacing:2px;margin-bottom:4px;">CONTENT SIMILARITY</div>'
+                    f'<div style="font-size:0.8rem;color:#888;letter-spacing:2px;margin-bottom:4px;">{lbl_similarity}</div>'
                     f'<div style="font-size:3rem;font-weight:900;color:{score_color};">{score}%</div>'
-                    f'<div style="font-size:0.8rem;color:#666;">based on genre, cast, director & keywords</div></div>',
+                    f'<div style="font-size:0.8rem;color:#666;">{lbl_basis}</div></div>',
                     unsafe_allow_html=True,
                 )
                 st.markdown("---")
@@ -72,39 +75,39 @@ def render() -> None:
                 same_director = ext1["director"] == ext2["director"] and ext1["director"] != "Unknown"
                 if common_cast or common_genres or same_director:
                     st.markdown("---")
-                    st.subheader("🔗 What they share")
+                    st.subheader(t("what_they_share"))
                     if same_director:
-                        st.success(f"Same director: **{ext1['director']}**")
+                        st.success(f"{t('same_director')} **{ext1['director']}**")
                     if common_genres:
-                        st.info(f"Common genres: **{', '.join(common_genres)}**")
+                        st.info(f"{t('common_genres')} **{', '.join(common_genres)}**")
                     if common_cast:
-                        st.info(f"Same actors: **{', '.join(common_cast)}**")
+                        st.info(f"{t('same_actors')} **{', '.join(common_cast)}**")
 
     with subtab2:
-        st.header("👥 What Should We Watch Together?")
-        st.markdown("Combine the favorite movies of two people to find perfect recommendations matching both tastes!")
+        st.header(t("watch_together_title"))
+        st.markdown(t("watch_together_subtitle"))
 
         col_p1, col_p2 = st.columns(2)
         with col_p1:
-            st.subheader("Person 1")
+            st.subheader(t("person_1"))
             p1_movies = st.multiselect(
-                "Favorites (Person 1)",
+                t("favorites_p1"),
                 options=all_titles,
                 default=[all_titles[0]] if all_titles else [],
                 max_selections=3,
                 key="social_p1",
             )
         with col_p2:
-            st.subheader("Person 2")
+            st.subheader(t("person_2"))
             p2_movies = st.multiselect(
-                "Favorites (Person 2)",
+                t("favorites_p2"),
                 options=all_titles,
                 default=[all_titles[min(5, len(all_titles) - 1)]] if len(all_titles) > 5 else [],
                 max_selections=3,
                 key="social_p2",
             )
 
-        if st.button("🍿 Find Movie Match for Both!", use_container_width=True, key="btn_social_match"):
+        if st.button(t("find_match_both_btn"), use_container_width=True, key="btn_social_match"):
             if not p1_movies and not p2_movies:
                 st.warning("Please select at least one favorite movie for Person 1 or Person 2.")
             else:
@@ -113,7 +116,7 @@ def render() -> None:
 
                 if joint_recs:
                     st.markdown("---")
-                    st.subheader("🎉 Perfect Joint Matches For You Two:")
+                    st.subheader(t("perfect_joint_matches"))
                     render_recommendations(joint_recs, section="social_match")
                 else:
                     st.info("No matching recommendations found for this combination.")

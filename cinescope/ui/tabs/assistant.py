@@ -123,16 +123,17 @@ def _smart_search_fallback(prompt: str) -> tuple[str, list[dict]]:
 
 
 def render() -> None:
+    from cinescope.i18n import get_lang, t
     col_h, col_c = st.columns([4, 1])
     with col_h:
-        st.header("💬 AI Movie Assistant")
-        st.caption("Chat with a virtual advisor who will help you find the perfect movie or TV show!")
+        st.header(t("assistant_title"))
+        st.caption(t("assistant_subtitle"))
     with col_c:
-        if st.button("🗑️ Clear Chat", key="btn_clear_chat", use_container_width=True):
+        if st.button(t("clear_chat"), key="btn_clear_chat", use_container_width=True):
             st.session_state.chat_messages = [
                 {
                     "role": "assistant",
-                    "content": "Hi! I'm your virtual movie & TV advisor. What kind of movie, show or mood are you looking for today?",
+                    "content": t("chat_welcome_msg"),
                     "movies": [],
                 }
             ]
@@ -155,7 +156,7 @@ def render() -> None:
         st.session_state.chat_messages = [
             {
                 "role": "assistant",
-                "content": "Hi! I'm your virtual movie & TV advisor. What kind of movie, show or mood are you looking for today?",
+                "content": t("chat_welcome_msg"),
                 "movies": [],
             }
         ]
@@ -174,7 +175,7 @@ def render() -> None:
                     for i, m in enumerate(movies[:n]):
                         render_rec_card(cols[i], m, section=f"chat_{idx}_{m['id']}")
 
-    if prompt := st.chat_input("Tell me what kind of movie or TV show you're looking for..."):
+    if prompt := st.chat_input(t("chat_input_placeholder")):
         st.session_state.chat_messages.append({"role": "user", "content": prompt, "movies": []})
 
         with messages_container:
@@ -189,14 +190,14 @@ def render() -> None:
                         if watchlist_titles
                         else "The user has no movies in Watchlist yet."
                     )
-
+                    lang_name = "Polish" if get_lang() == "PL" else "English"
                     system_prompt = (
                         "You are a friendly, knowledgeable movie & TV expert in CineScope. "
                         f"{watchlist_ctx} "
                         "Help the user discover great movies and TV shows. When asked for recommendations or searches, "
                         "use your available tools (search_movies_tool, search_tv_tool, get_similar_movies_tool, get_trending_movies_tool) "
                         "to find accurate titles. Suggest 2-5 specific titles with a short justification for each. "
-                        "Keep your tone warm and concise. Respond in English."
+                        f"Keep your tone warm and concise. Respond in {lang_name}."
                     )
 
                     tool_collected_movies: list[dict] = []
