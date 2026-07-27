@@ -1,4 +1,4 @@
-"""Sidebar: filters, language switcher, stats, watchlist, ratings and settings backup."""
+"""Sidebar: profile switcher, filters, language switcher, stats, watchlist, ratings and settings backup."""
 
 from __future__ import annotations
 
@@ -8,6 +8,37 @@ from cinescope import data, i18n, state, tmdb
 from cinescope.i18n import t
 from cinescope.recommender import recommend
 from cinescope.ui.html import rating_color
+
+
+def _render_profile_switcher() -> None:
+    st.header(t("select_profile"))
+    profiles = list(st.session_state.profiles.keys())
+    active = st.session_state.active_profile
+    add_option = t("add_new_profile")
+    options = profiles + [add_option]
+    index = profiles.index(active) if active in profiles else 0
+
+    selected = st.selectbox(
+        t("active_profile_label"),
+        options=options,
+        index=index,
+        key="sb_profile_select",
+        label_visibility="collapsed",
+    )
+
+    if selected == add_option:
+        with st.form("new_profile_form", clear_on_submit=True):
+            new_name = st.text_input("Name", placeholder=t("new_profile_name_placeholder"), label_visibility="collapsed")
+            submitted = st.form_submit_button(t("create_profile_btn"), use_container_width=True)
+            if submitted and new_name:
+                if state.add_profile(new_name):
+                    st.toast(t("profile_created_toast").format(name=new_name))
+                    st.rerun()
+                else:
+                    st.error("Profile name already exists or is empty.")
+    elif selected != active:
+        state.switch_profile(selected)
+        st.rerun()
 
 
 def _render_language_switcher() -> None:
@@ -128,6 +159,8 @@ def _render_backup_settings() -> None:
 def render() -> tuple[list[str], set[int]]:
     """Render the sidebar and return (selected genres, provider ids)."""
     with st.sidebar:
+        _render_profile_switcher()
+        st.markdown("---")
         _render_language_switcher()
         st.markdown("---")
         st.header(t("filters_header"))

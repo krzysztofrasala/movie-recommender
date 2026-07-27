@@ -1,9 +1,7 @@
-"""Session-state initialisation and user data (watchlist, ratings, history).
+"""Session-state initialisation, multi-user profiles, and user data (watchlist, ratings, history).
 
-The watchlist is per-visitor: it lives in ``st.session_state`` during a
-session and is persisted to the browser's localStorage so it survives
-page reloads. Nothing is written server-side, so visitors never share
-each other's data — unlike a single JSON file on the server would.
+The watchlist and ratings are stored per-profile in ``st.session_state`` during a
+session and persisted per-profile.
 """
 
 from __future__ import annotations
@@ -14,6 +12,7 @@ import streamlit as st
 from streamlit_local_storage import LocalStorage
 
 MAX_SEARCH_HISTORY = 10
+DEFAULT_PROFILES = ["Krzysztof", "Partnerka", "Rodzina"]
 
 # localStorage integration keys.
 _LS_COMPONENT_KEY = "cinescope_local_storage"
@@ -41,22 +40,23 @@ def _load_watchlist() -> list[dict]:
         return []
 
 
-def persist_watchlist() -> None:
-    """Write the watchlist to localStorage if it changed since the last write.
+def _sync_active_profile_to_session() -> None:
+    active = st.session_state.get("active_profile", "Krzysztof")
+    profiles = st.session_state.get("profiles", {})
+    prof_data = profiles.get(active)
+    if not prof_data:
+        prof_data = {
+            "watchlist": [],
+            "user_ratings": {},
+            "rated_movies_info": {},
+            "search_history": [],
+        }
+        profiles[active] = prof_data
 
-    Must be called from the main script body (not from a button handler that
-    triggers ``st.rerun()``): the localStorage component only runs its browser
-    write when it is present in the run that is actually rendered, so a
-    component mounted right before a rerun would be torn down before it fires.
-    """
-    signature = json.dumps(st.session_state.watchlist)
-    if st.session_state.get("_watchlist_signature") == signature:
-        return
-    try:
-        _local_storage().setItem(_WATCHLIST_ITEM, signature, key="ls_set_watchlist")
-        st.session_state._watchlist_signature = signature
-    except Exception:
-        pass  # persistence is best-effort; the in-memory copy stays valid
+    st.session_state["watchlist"] = prof_data["watchlist"]
+    st.session_state["user_ratings"] = prof_data["user_ratings"]
+    st.session_state["rated_movies_info"] = prof_data["rated_movies_info"]
+    st.session_state["search_history"] = prof_data["search_history"]
 
 
 def init() -> None:
@@ -65,78 +65,186 @@ def init() -> None:
         "trending_index": 0,
         "recommendations": [],
         "rec_source": None,
-        "user_ratings": {},
-        "rated_movies_info": {},
-        "search_history": [],
         "selected_person_id": None,
         "selected_person_name": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
-    if "watchlist" not in st.session_state:
-        st.session_state.watchlist = _load_watchlist()
+
+    if "profiles" not in st.session_state:
+        st.session_state["profiles"] = {
+            p: {
+                "watchlist": _load_watchlist() if p == "Krzysztof" else [],
+                "user_ratings": {},
+                "rated_movies_info": {},
+                "search_history": [],
+            }
+            for p in DEFAULT_PROFILES
+        }
+    if "active_profile" not in st.session_state:
+        st.session_state["active_profile"] = "Krzysztof"
+
+    _sync_active_profile_to_session()
+
+
+def switch_profile(profile_name: str) -> None:
+    profiles = st.session_state.get("profiles", {})
+    if profile_name in profiles:
+        st.session_state["active_profile"] = profile_name
+        _sync_active_profile_to_session()
+
+
+def add_profile(profile_name: str) -> bool:
+    name = profile_name.strip()
+    profiles = st.session_state.get("profiles", {})
+    if not name or name in profiles:
+        return False
+    profiles[name] = {
+        "watchlist": [],
+        "user_ratings": {},
+        "rated_movies_info": {},
+        "search_history": [],
+    }
+    st.session_state["active_profile"] = name
+    _sync_active_profile_to_session()
+    return True
+
+
+def delete_profile(profile_name: str) -> bool:
+    profiles = st.session_state.get("profiles", {})
+    if profile_name in profiles and len(profiles) > 1:
+        del profiles[profile_name]
+        st.session_state["active_profile"] = list(profiles.keys())[0]
+        _sync_active_profile_to_session()
+        return True
+    return False
+
+
+def persist_watchlist() -> None:
+    """Write the active profile's watchlist to localStorage."""
+    try:
+        watchlist = st.session_state.get("watchlist", [])
+        signature = json.dumps(watchlist)
+        if st.session_state.get("_watchlist_signature") == signature:
+            return
+        _local_storage().setItem(_WATCHLIST_ITEM, signature, key="ls_set_watchlist")
+        st.session_state["_watchlist_signature"] = signature
+    except Exception:
+        pass
 
 
 def add_to_watchlist(title: str, poster: str, rating: float) -> bool:
-    """Add a movie to the watchlist. Returns False if it is already there."""
-    if any(m["title"] == title for m in st.session_state.watchlist):
+    """Add a movie to the active profile's watchlist."""
+    watchlist = st.session_state.get("watchlist", [])
+    if any(m["title"] == title for m in watchlist):
         return False
-    st.session_state.watchlist.append({"title": title, "poster": poster, "rating": rating})
+    watchlist.append({"title": title, "poster": poster, "rating": rating})
+    st.session_state["watchlist"] = watchlist
     return True
 
 
 def remove_from_watchlist(title: str) -> None:
-    st.session_state.watchlist = [m for m in st.session_state.watchlist if m["title"] != title]
+    """Remove a movie from the active profile's watchlist."""
+    watchlist = [m for m in st.session_state.get("watchlist", []) if m["title"] != title]
+    st.session_state["watchlist"] = watchlist
+    active = st.session_state.get("active_profile")
+    profiles = st.session_state.get("profiles")
+    if active and profiles and active in profiles:
+        profiles[active]["watchlist"] = watchlist
 
 
 def set_recommendations(recs: list[dict], source_title: str, add_to_history: bool = True) -> None:
-    """Store a recommendation set and optionally remember its source in search history."""
-    st.session_state.recommendations = recs
-    st.session_state.rec_source = source_title
+    """Store a recommendation set and optionally remember its source in active profile's history."""
+    st.session_state["recommendations"] = recs
+    st.session_state["rec_source"] = source_title
 
     if add_to_history:
-        history = [h for h in st.session_state.search_history if h != source_title]
+        history = [h for h in st.session_state.get("search_history", []) if h != source_title]
         history.insert(0, source_title)
-        st.session_state.search_history = history[:MAX_SEARCH_HISTORY]
+        st.session_state["search_history"] = history[:MAX_SEARCH_HISTORY]
+        active = st.session_state.get("active_profile")
+        profiles = st.session_state.get("profiles")
+        if active and profiles and active in profiles:
+            profiles[active]["search_history"] = st.session_state["search_history"]
 
 
 def export_user_data_json() -> str:
-    """Serialize the user's watchlist, ratings and rated_movies_info into JSON format."""
+    """Serialize all profiles into JSON format."""
+    active = st.session_state.get("active_profile", "Krzysztof")
+    profiles = st.session_state.get("profiles")
+    if not profiles:
+        profiles = {
+            active: {
+                "watchlist": st.session_state.get("watchlist", []),
+                "user_ratings": st.session_state.get("user_ratings", {}),
+                "rated_movies_info": st.session_state.get("rated_movies_info", {}),
+                "search_history": st.session_state.get("search_history", []),
+            }
+        }
+
     payload = {
-        "version": "1.0",
-        "watchlist": st.session_state.get("watchlist", []),
-        "user_ratings": st.session_state.get("user_ratings", {}),
-        "rated_movies_info": st.session_state.get("rated_movies_info", {}),
+        "version": "2.0",
+        "active_profile": active,
+        "profiles": profiles,
     }
     return json.dumps(payload, indent=2)
 
 
 def import_user_data_json(json_str: str) -> bool:
-    """Parse JSON string and restore watchlist and user ratings. Returns True on success."""
+    """Parse JSON string and restore profiles. Returns True on success."""
     try:
         data = json.loads(json_str)
         if not isinstance(data, dict):
             return False
-        if "watchlist" in data and isinstance(data["watchlist"], list):
-            st.session_state.watchlist = data["watchlist"]
-        if "user_ratings" in data and isinstance(data["user_ratings"], dict):
-            parsed_ratings = {}
-            for k, v in data["user_ratings"].items():
+
+        def _parse_ratings(ratings_dict: dict) -> dict:
+            res = {}
+            for k, v in ratings_dict.items():
                 try:
-                    parsed_ratings[int(k)] = int(v)
+                    res[int(k)] = int(v) if str(v).isdigit() else v
                 except ValueError:
-                    parsed_ratings[k] = v
-            st.session_state.user_ratings = parsed_ratings
-        if "rated_movies_info" in data and isinstance(data["rated_movies_info"], dict):
-            parsed_info = {}
-            for k, v in data["rated_movies_info"].items():
+                    res[k] = v
+            return res
+
+        def _parse_info(info_dict: dict) -> dict:
+            res = {}
+            for k, v in info_dict.items():
                 try:
-                    parsed_info[int(k)] = v
+                    res[int(k)] = v
                 except ValueError:
-                    parsed_info[k] = v
-            st.session_state.rated_movies_info = parsed_info
-        return True
+                    res[k] = v
+            return res
+
+        if "profiles" in data and isinstance(data["profiles"], dict):
+            parsed_profiles = {}
+            for pname, pval in data["profiles"].items():
+                parsed_profiles[pname] = {
+                    "watchlist": pval.get("watchlist", []),
+                    "user_ratings": _parse_ratings(pval.get("user_ratings", {})),
+                    "rated_movies_info": _parse_info(pval.get("rated_movies_info", {})),
+                    "search_history": pval.get("search_history", []),
+                }
+            st.session_state["profiles"] = parsed_profiles
+            if "active_profile" in data and data["active_profile"] in parsed_profiles:
+                st.session_state["active_profile"] = data["active_profile"]
+            else:
+                st.session_state["active_profile"] = list(parsed_profiles.keys())[0]
+            _sync_active_profile_to_session()
+            return True
+        elif "watchlist" in data:
+            active = st.session_state.get("active_profile", "Krzysztof")
+            if "profiles" not in st.session_state or not isinstance(st.session_state["profiles"], dict):
+                st.session_state["profiles"] = {}
+            st.session_state.profiles[active] = {
+                "watchlist": data.get("watchlist", []),
+                "user_ratings": _parse_ratings(data.get("user_ratings", {})),
+                "rated_movies_info": _parse_info(data.get("rated_movies_info", {})),
+                "search_history": [],
+            }
+            st.session_state["active_profile"] = active
+            _sync_active_profile_to_session()
+            return True
+        return False
     except (TypeError, ValueError, json.JSONDecodeError):
         return False
-

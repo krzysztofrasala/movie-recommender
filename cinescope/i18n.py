@@ -72,6 +72,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "mood_scifi": "🚀 Sci-Fi",
         "mood_drama": "🍿 Dramat",
         "mood_animation": "🎬 Animacja",
+        # Profiles
+        "select_profile": "👤 Profil Użytkownika",
+        "active_profile_label": "Aktywny Profil",
+        "add_new_profile": "➕ Dodaj nowy profil",
+        "new_profile_name_placeholder": "Nazwa profilu (np. Ania, Dzieci...)",
+        "create_profile_btn": "✨ Utwórz Profil",
+        "delete_profile_btn": "🗑️ Usuń Profil",
+        "profile_created_toast": "✅ Profil **{name}** został utworzony!",
+        "profile_deleted_toast": "🗑️ Profil **{name}** został usunięty.",
         # Compare
         "tab_compare_movies": "⚖️ Porównaj dwa filmy",
         "tab_watch_together": "👥 Co oglądamy razem?",
@@ -167,6 +176,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "mood_scifi": "🚀 Sci-Fi",
         "mood_drama": "🍿 Drama",
         "mood_animation": "🎬 Animation",
+        # Profiles
+        "select_profile": "👤 User Profile",
+        "active_profile_label": "Active Profile",
+        "add_new_profile": "➕ Add new profile",
+        "new_profile_name_placeholder": "Profile name (e.g., Anna, Kids...)",
+        "create_profile_btn": "✨ Create Profile",
+        "delete_profile_btn": "🗑️ Delete Profile",
+        "profile_created_toast": "✅ Profile **{name}** created!",
+        "profile_deleted_toast": "🗑️ Profile **{name}** deleted.",
         # Compare
         "tab_compare_movies": "⚖️ Compare Two Movies",
         "tab_watch_together": "👥 What to Watch Together?",

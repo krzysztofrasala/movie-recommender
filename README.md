@@ -21,6 +21,10 @@
 - **Recommended For You** — personalized picks based on dense embeddings ($V_{user}$) & star ratings with `🎯 % Match` indicators
 - **🍿 VOD Filtering** — filter by Polish streaming availability (**Netflix, Max, Disney+, Prime Video, Apple TV+, SkyShowtime**)
 
+### 👥 Multi-User Profiles & Personalization
+- **👥 Profile Switcher** — instant switching between profiles (**"Krzysztof"**, **"Partnerka"**, **"Rodzina"**, or custom user profiles) directly in the sidebar
+- **🔒 Isolated Taste & Watchlists** — independent watchlists, star ratings, search history, and ML taste vectors per profile
+
 ### 🔍 Search & Discover Pro
 - **My Library** — search 5,000+ movies with text filter, genre & year sliders, plus Cards Grid view
 - **⚡ Discover Pro** — search specifically by **Actors**, **Directors**, **Original Language** (Polish, Korean, French, Spanish, Japanese, etc.), and minimum rating floors
@@ -36,7 +40,7 @@
 
 ### 🌐 Internationalization & Settings
 - **🌐 Language Switcher** — toggle between **Polish (PL 🇵🇱)** and **English (EN 🇬🇧)** for UI and TMDB content
-- **⚙️ Settings & Backup** — export and restore user watchlist & ratings data as a JSON file
+- **⚙️ Settings & Backup** — export and restore multi-profile watchlist & ratings data as a JSON file
 
 ---
 
@@ -107,7 +111,7 @@ docker-compose up --build
 
 ### 6. Run tests
 ```bash
-pytest              # 74 unit tests covering i18n, state, assistant, roulette, tmdb, data
+pytest              # 78 unit tests covering profiles, i18n, state, assistant, roulette, tmdb, data
 ```
 
 ---
@@ -125,7 +129,7 @@ movie-recommender/
 │   ├── i18n.py                 # Internationalization (PL/EN dictionary & helpers)
 │   ├── nl_query.py             # Natural-language query parsing (zero API cost)
 │   ├── recommender.py          # Content-based recommendation & group vector engine
-│   ├── state.py                # Session state, watchlist, JSON export/import
+│   ├── state.py                # Multi-profile session state, watchlist, JSON export/import
 │   ├── taste.py                # Taste-DNA profiling & personas
 │   ├── tmdb.py                 # TMDB API client (all HTTP in one place)
 │   └── ui/
@@ -133,7 +137,7 @@ movie-recommender/
 │       ├── dialogs.py          # Movie & TV detail modals with YouTube trailer
 │       ├── home.py             # Home sections (film of the day, trending, ...)
 │       ├── html.py             # Shared HTML snippet builders
-│       ├── sidebar.py          # Language toggle, filters, stats, settings backup
+│       ├── sidebar.py          # Profile switcher, language toggle, filters, stats, settings backup
 │       ├── styles.py           # Global CSS
 │       └── tabs/               # Feature tabs:
 │           ├── assistant.py    # AI Chat interface with Gemini Tool Calling
@@ -143,7 +147,7 @@ movie-recommender/
 │           ├── search.py       # Search & Discover Pro (Actors, Directors, Language)
 │           ├── taste_dna.py    # Taste DNA radar chart & metrics
 │           └── top10.py        # Top 10 charts
-├── tests/                      # pytest suite (74 tests)
+├── tests/                      # pytest suite (78 tests including test_profiles.py)
 └── fetch_dataset.py            # Rebuilds recommendation model vectors
 ```
 
