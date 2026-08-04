@@ -30,7 +30,45 @@ def get_sort_options() -> dict[str, str]:
     }
 
 
-def render(filtered: pd.DataFrame) -> None:
+def _render_watchlist_tab() -> None:
+    watchlist = st.session_state.get("watchlist", [])
+    rated_info = st.session_state.get("rated_movies_info", {})
+    user_ratings = st.session_state.get("user_ratings", {})
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric(t("watchlist_metric"), len(watchlist))
+    c2.metric(t("rated_metric"), len(rated_info))
+    if rated_info:
+        avg = sum(user_ratings.values()) / len(rated_info)
+        c3.metric(t("your_avg_rating"), f"⭐ {avg:.1f}/5")
+    else:
+        c3.metric(t("your_avg_rating"), "—")
+
+    st.markdown("---")
+
+    if not watchlist:
+        st.info(t("watchlist_empty"))
+    else:
+        st.subheader(f"❤️ {t('watchlist_title')} ({len(watchlist)})")
+        from cinescope.ui.cards import render_recommendations
+        render_recommendations(watchlist, section="lib_wl_tab")
+
+    if rated_info:
+        st.markdown("---")
+        st.subheader(f"⭐ {t('your_ratings_header')}")
+        from cinescope.ui.html import rating_color
+        for movie_id, info in rated_info.items():
+            rating = user_ratings.get(movie_id, 0)
+            rc = rating_color(rating * 2)
+            c_img, c_txt = st.columns([1, 10])
+            with c_img:
+                st.image(info["poster"], use_container_width=True)
+            with c_txt:
+                st.markdown(f"**{info['title']}**")
+                st.markdown(f"<span style='color:{rc};font-size:0.9rem;'>{'★' * (rating + 1)}{'☆' * (4 - rating)} ({rating + 1}/5)</span>", unsafe_allow_html=True)
+
+
+def _render_browse_tab(filtered: pd.DataFrame) -> None:
     if filtered.empty:
         st.markdown(_EMPTY_FILTERS_HTML, unsafe_allow_html=True)
         return
@@ -126,6 +164,17 @@ def render(filtered: pd.DataFrame) -> None:
             card_items = [r for r in ex.map(fetch_movie_card, page_movies.itertuples()) if r]
 
         render_recommendations(card_items, section=f"lib_grid_p{page}")
+
+
+def render(filtered: pd.DataFrame) -> None:
+    wl_count = len(st.session_state.get("watchlist", []))
+    sub1, sub2 = st.tabs([f"❤️ {t('watchlist_title')} ({wl_count})", f"🎬 {t('nav_library')}"])
+
+    with sub1:
+        _render_watchlist_tab()
+
+    with sub2:
+        _render_browse_tab(filtered)
 
     if st.session_state.recommendations:
         st.markdown("---")

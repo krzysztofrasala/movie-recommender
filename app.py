@@ -41,6 +41,60 @@ def _check_prerequisites() -> None:
         st.stop()
 
 
+from cinescope import data, i18n, state, tmdb
+
+
+def _render_top_header() -> None:
+    head_left, head_right = st.columns([5, 6], vertical_alignment="center")
+    with head_left:
+        st.title(t("app_title"))
+        st.caption(t("app_tagline"))
+    with head_right:
+        c_wl, c_prof, c_lang = st.columns([2.2, 2.2, 1.8], vertical_alignment="center")
+        with c_wl:
+            sidebar.render_watchlist_popover()
+        with c_prof:
+            profiles = list(st.session_state.profiles.keys())
+            active = st.session_state.active_profile
+            add_option = t("add_new_profile")
+            options = profiles + [add_option]
+            index = profiles.index(active) if active in profiles else 0
+            selected = st.selectbox(
+                t("active_profile_label"),
+                options=options,
+                index=index,
+                label_visibility="collapsed",
+                key="top_profile_select",
+            )
+            if selected == add_option:
+                with st.popover("➕ New Profile", use_container_width=True):
+                    new_name = st.text_input("Name", placeholder=t("new_profile_name_placeholder"))
+                    if st.button("Create Profile", use_container_width=True, key="btn_top_create_p"):
+                        if new_name and state.add_profile(new_name):
+                            st.toast(t("profile_created_toast").format(name=new_name))
+                            st.rerun()
+                        else:
+                            st.error("Profile name already exists or is empty.")
+            elif selected != active:
+                state.switch_profile(selected)
+                st.rerun()
+        with c_lang:
+            current_lang = i18n.get_lang()
+            index = 0 if current_lang == "PL" else 1
+            selected_lang = st.radio(
+                t("filter_language"),
+                ["PL 🇵🇱", "EN 🇬🇧"],
+                index=index,
+                horizontal=True,
+                label_visibility="collapsed",
+                key="top_lang_radio_select",
+            )
+            new_lang = "PL" if "PL" in selected_lang else "EN"
+            if new_lang != current_lang:
+                st.session_state.lang = new_lang
+                st.rerun()
+
+
 def main() -> None:
     # "auto" lets Streamlit collapse the sidebar on narrow viewports so the
     # main content is visible on mobile without a manual close first.
@@ -51,8 +105,7 @@ def main() -> None:
 
     selected_genres, provider_ids = sidebar.render()
 
-    st.title(t("app_title"))
-    st.caption(t("app_tagline"))
+    _render_top_header()
 
     filters = {
         "genres": selected_genres,

@@ -8,6 +8,17 @@ _CSS = """
 
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
+/* ── Streamlit default chrome removal ── */
+header[data-testid="stHeader"] { visibility: hidden !important; height: 0 !important; }
+#MainMenu { visibility: hidden !important; }
+footer { visibility: hidden !important; }
+[data-testid="stDecoration"] { display: none !important; }
+
+.block-container {
+    padding-top: 1.5rem !important;
+    padding-bottom: 2rem !important;
+}
+
 h1 {
     font-size: 2.8rem !important;
     font-weight: 800 !important;
@@ -267,9 +278,24 @@ hr { border-color: #1e1e1e !important; margin: 1.5rem 0 !important; }
         overflow-x: auto;
         flex-wrap: nowrap !important;
     }
-    .stTabs [data-baseweb="tab"] {
-        white-space: nowrap;
-        flex-shrink: 0;
+    /* Segmented Radio Switcher (Language Toggle) */
+    div[key="top_lang_radio_select"] [role="radiogroup"] {
+        background: #141414 !important;
+        border: 1px solid #2a2a2a !important;
+        border-radius: 20px !important;
+        padding: 3px !important;
+        gap: 4px !important;
+    }
+    div[key="top_lang_radio_select"] label {
+        border-radius: 16px !important;
+        padding: 4px 12px !important;
+        font-size: 0.78rem !important;
+        font-weight: 600 !important;
+        color: #888 !important;
+        transition: all 0.2s ease !important;
+    }
+    div[key="top_lang_radio_select"] label:hover {
+        color: #F5C518 !important;
     }
 }
 </style>
