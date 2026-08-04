@@ -8,11 +8,12 @@ _CSS = """
 
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
-/* ── Streamlit default chrome removal ── */
+/* ── Streamlit default chrome & prompt removal ── */
 header[data-testid="stHeader"] { visibility: hidden !important; height: 0 !important; }
 #MainMenu { visibility: hidden !important; }
 footer { visibility: hidden !important; }
 [data-testid="stDecoration"] { display: none !important; }
+div[data-testid="stToast"] { display: none !important; }
 
 .block-container {
     padding-top: 1.5rem !important;
