@@ -111,7 +111,7 @@ docker-compose up --build
 
 ### 6. Run tests
 ```bash
-pytest              # 78 unit tests covering profiles, i18n, state, assistant, roulette, tmdb, data
+pytest              # 85 unit tests covering profiles, i18n, state, assistant, roulette, tmdb, data
 ```
 
 ---
@@ -147,7 +147,7 @@ movie-recommender/
 │           ├── search.py       # Search & Discover Pro (Actors, Directors, Language)
 │           ├── taste_dna.py    # Taste DNA radar chart & metrics
 │           └── top10.py        # Top 10 charts
-├── tests/                      # pytest suite (78 tests including test_profiles.py)
+├── tests/                      # pytest suite (85 tests including test_profiles.py)
 └── fetch_dataset.py            # Rebuilds recommendation model vectors
 ```
 
