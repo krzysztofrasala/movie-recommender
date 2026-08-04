@@ -5,11 +5,12 @@ from __future__ import annotations
 import streamlit as st
 
 from cinescope import tmdb
+from cinescope.i18n import t
 from cinescope.ui.html import format_runtime, genre_chips_html, justwatch_url, poster_html, rating_color
 
 
 def _render_cast(cast_details: list[dict]) -> None:
-    st.markdown("**Cast**")
+    st.markdown(f"**{t('cast_header')}**")
     cols = st.columns(min(len(cast_details), 8))
     for i, actor in enumerate(cast_details[:8]):
         with cols[i]:
@@ -23,7 +24,7 @@ def _render_trailer_and_watch_link(trailer: str | None, title: str) -> None:
     if trailer:
         url = trailer if trailer.startswith("http") else f"https://www.youtube.com/watch?v={trailer}"
         st.video(url)
-    st.link_button("Find where to watch 📺", justwatch_url(title), use_container_width=True)
+    st.link_button(t("find_where_to_watch"), justwatch_url(title), use_container_width=True)
 
 
 
@@ -48,9 +49,9 @@ def show_movie_details(movie_id: int, title: str, poster: str, rating: float, ov
             if ext["runtime"]:
                 cols_meta[0].write(f"⏱️ {format_runtime(ext['runtime'])}")
             if ext["director"]:
-                cols_meta[1].write(f"🎬 {ext['director']}")
+                cols_meta[1].write(f"🎬 {t('director_label')} {ext['director']}")
             if ext["budget"] > 0:
-                st.write(f"💰 Budget: ${ext['budget']:,}")
+                st.write(f"💰 {t('budget_label')} ${ext['budget']:,}")
         st.markdown("---")
         st.write(overview)
 
@@ -85,7 +86,7 @@ def show_tv_details(tv_id: int, title: str, poster: str, rating: float, overview
                 status_color = "#2ECC71" if ext["status"] == "Returning Series" else "#888"
                 st.markdown(f'<span style="color:{status_color};">● {ext["status"]}</span>', unsafe_allow_html=True)
             if ext["creator"]:
-                st.write(f"🎬 Created by: **{ext['creator']}**")
+                st.write(f"🎬 {t('created_by')} **{ext['creator']}**")
         st.markdown("---")
         st.write(overview)
 

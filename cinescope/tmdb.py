@@ -103,7 +103,7 @@ def _first_youtube_trailer(data: dict | None) -> str | None:
 @st.cache_data(ttl=DAY)
 def fetch_movie_details(movie_id: int) -> dict | None:
     """Poster, rating and overview for a single movie."""
-    d = _get(f"movie/{movie_id}", {"language": "en-US"})
+    d = _get(f"movie/{movie_id}")
     if not d:
         return None
     return {
@@ -117,7 +117,7 @@ def fetch_movie_details(movie_id: int) -> dict | None:
 @st.cache_data(ttl=DAY)
 def fetch_movie_extended(movie_id: int) -> dict | None:
     """Credits, genres, runtime and budget for the movie details dialog."""
-    d = _get(f"movie/{movie_id}", {"language": "en-US", "append_to_response": "credits"})
+    d = _get(f"movie/{movie_id}", {"append_to_response": "credits"})
     if not d:
         return None
     credits = d.get("credits", {})
@@ -135,7 +135,7 @@ def fetch_movie_extended(movie_id: int) -> dict | None:
 
 @st.cache_data(ttl=DAY)
 def fetch_movie_trailer(movie_id: int) -> str | None:
-    return _first_youtube_trailer(_get(f"movie/{movie_id}/videos", {"language": "en-US"}))
+    return _first_youtube_trailer(_get(f"movie/{movie_id}/videos"))
 
 
 @st.cache_data(ttl=HOUR)
@@ -148,21 +148,21 @@ def fetch_trending() -> list[dict]:
 @st.cache_data(ttl=HOUR)
 def fetch_now_playing() -> list[dict]:
     """Raw TMDB payloads for movies currently in cinemas."""
-    d = _get("movie/now_playing", {"language": "en-US"})
+    d = _get("movie/now_playing")
     return d.get("results", [])[:5] if d else []
 
 
 @st.cache_data(ttl=DAY)
 def fetch_movie_recommendations(movie_id: int) -> list[dict]:
     """TMDB collaborative recommendations — fallback for titles outside the local model."""
-    d = _get(f"movie/{movie_id}/recommendations", {"language": "en-US"})
+    d = _get(f"movie/{movie_id}/recommendations")
     return [_movie_summary(m) for m in d.get("results", [])[:10]] if d else []
 
 
 @st.cache_data(ttl=DAY)
 def fetch_movie_of_the_day() -> dict | None:
     """A deterministic daily pick from TMDB's popular list."""
-    d = _get("movie/popular", {"language": "en-US", "page": 1})
+    d = _get("movie/popular", {"page": 1})
     results = d.get("results", []) if d else []
     if not results:
         return None
@@ -180,7 +180,7 @@ def fetch_movie_of_the_day() -> dict | None:
 @st.cache_data(ttl=HOUR)
 def fetch_top_movies(category: str = "popular") -> list[dict]:
     """Top-10 list for a TMDB movie category ('popular' or 'top_rated')."""
-    d = _get(f"movie/{category}", {"language": "en-US"})
+    d = _get(f"movie/{category}")
     return [_movie_summary(m) for m in d.get("results", [])[:10]] if d else []
 
 
@@ -188,19 +188,19 @@ def fetch_top_movies(category: str = "popular") -> list[dict]:
 
 @st.cache_data(ttl=HOUR)
 def search_movies(query: str) -> list[dict]:
-    d = _get("search/movie", {"query": query, "language": "en-US"})
+    d = _get("search/movie", {"query": query})
     return [_movie_summary(m) for m in d.get("results", [])[:10]] if d else []
 
 
 @st.cache_data(ttl=HOUR)
 def search_tv(query: str) -> list[dict]:
-    d = _get("search/tv", {"query": query, "language": "en-US"})
+    d = _get("search/tv", {"query": query})
     return [_movie_summary(m) for m in d.get("results", [])[:10]] if d else []
 
 
 @st.cache_data(ttl=HOUR)
 def search_person(query: str) -> list[dict]:
-    d = _get("search/person", {"query": query, "language": "en-US"})
+    d = _get("search/person", {"query": query})
     if not d:
         return []
     return [
@@ -218,7 +218,7 @@ def search_person(query: str) -> list[dict]:
 @st.cache_data(ttl=DAY)
 def fetch_person_credits(person_id: int) -> list[dict]:
     """A person's 10 most popular movie/TV credits."""
-    d = _get(f"person/{person_id}/combined_credits", {"language": "en-US"})
+    d = _get(f"person/{person_id}/combined_credits")
     if not d:
         return []
     cast = sorted(d.get("cast", []), key=lambda c: c.get("popularity", 0), reverse=True)[:10]
@@ -230,7 +230,7 @@ def fetch_person_credits(person_id: int) -> list[dict]:
 @st.cache_data(ttl=DAY)
 def fetch_tv_extended(tv_id: int) -> dict | None:
     """Credits, seasons and status for the TV details dialog."""
-    d = _get(f"tv/{tv_id}", {"language": "en-US", "append_to_response": "credits"})
+    d = _get(f"tv/{tv_id}", {"append_to_response": "credits"})
     if not d:
         return None
     cast = d.get("credits", {}).get("cast", [])[:8]
@@ -250,12 +250,12 @@ def fetch_tv_extended(tv_id: int) -> dict | None:
 
 @st.cache_data(ttl=DAY)
 def fetch_tv_trailer(tv_id: int) -> str | None:
-    return _first_youtube_trailer(_get(f"tv/{tv_id}/videos", {"language": "en-US"}))
+    return _first_youtube_trailer(_get(f"tv/{tv_id}/videos"))
 
 
 @st.cache_data(ttl=DAY)
 def fetch_tv_recommendations(tv_id: int) -> list[dict]:
-    d = _get(f"tv/{tv_id}/recommendations", {"language": "en-US"})
+    d = _get(f"tv/{tv_id}/recommendations")
     return [_movie_summary(m) for m in d.get("results", [])[:10]] if d else []
 
 
@@ -264,7 +264,7 @@ def fetch_tv_recommendations(tv_id: int) -> list[dict]:
 @st.cache_data(ttl=HOUR)
 def discover_by_genre(genre_id: int) -> list[dict]:
     """Most popular movies for a single genre (mood picker)."""
-    d = _get("discover/movie", {"with_genres": genre_id, "sort_by": "popularity.desc", "language": "en-US"})
+    d = _get("discover/movie", {"with_genres": genre_id, "sort_by": "popularity.desc"})
     return [_movie_summary(m) for m in d.get("results", [])[:10]] if d else []
 
 
@@ -275,7 +275,6 @@ def discover_by_decade(start_year: int, end_year: int) -> list[dict]:
         "primary_release_date.gte": f"{start_year}-01-01",
         "primary_release_date.lte": f"{end_year}-12-31",
         "sort_by": "popularity.desc",
-        "language": "en-US",
     })
     return [_movie_summary(m) for m in d.get("results", [])[:10]] if d else []
 
@@ -286,7 +285,7 @@ def smart_discover(genres: tuple, year_gte: int | None, year_lte: int | None,
                    with_original_language: str | None = None) -> list[dict]:
     """Discover movies matching filters parsed from a natural-language query."""
     min_votes = 10 if with_original_language else 100
-    params: dict = {"sort_by": sort_by, "vote_count.gte": min_votes, "language": "en-US"}
+    params: dict = {"sort_by": sort_by, "vote_count.gte": min_votes}
     if genres:
         params["with_genres"] = ",".join(str(g) for g in genres)
     if year_gte:
@@ -316,7 +315,7 @@ def filtered_discover(
     limit: int = 20
 ) -> list[dict]:
     """Discover movies matching explicit global UI filters directly via TMDB."""
-    params: dict = {"sort_by": sort_by, "vote_count.gte": 50, "language": "en-US"}
+    params: dict = {"sort_by": sort_by, "vote_count.gte": 50}
     
     if genres:
         params["with_genres"] = ",".join(str(g) for g in genres)
@@ -372,7 +371,6 @@ def fetch_hidden_gems(genre_id: int | None, exclude_ids: tuple) -> list[dict]:
         "vote_count.gte": 50,
         "vote_count.lte": 900,
         "vote_average.gte": 7.2,
-        "language": "en-US",
     }
     if genre_id:
         params["with_genres"] = genre_id

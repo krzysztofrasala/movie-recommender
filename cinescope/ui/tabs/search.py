@@ -59,15 +59,15 @@ def _describe_detected_filters(parsed: dict) -> None:
 def _render_unified_search() -> None:
     """Unified search: type any title, TV show, or actor/director name."""
     query = st.text_input(
-        "Search Title or Person",
-        placeholder="e.g. Dune, Breaking Bad, Christopher Nolan...",
+        t("search_title_person_label"),
+        placeholder=t("actor_placeholder"),
         label_visibility="collapsed",
         key="unified_q",
     )
     if not query:
         return
 
-    sub_tab1, sub_tab2, sub_tab3 = st.tabs(["🎬 Movies", "📺 TV Shows", "🎭 People & Directors"])
+    sub_tab1, sub_tab2, sub_tab3 = st.tabs([t("tab_movies"), t("tab_tv_shows"), t("tab_people")])
 
     with sub_tab1:
         _render_movie_search_results(query)
@@ -80,7 +80,7 @@ def _render_unified_search() -> None:
 
 
 def _render_movie_search_results(query: str) -> None:
-    with st.spinner("Searching movies..."):
+    with st.spinner(t("searching_movies")):
         results = tmdb.search_movies(query)
     if not results:
         st.markdown(_NO_RESULTS_HTML, unsafe_allow_html=True)
@@ -92,16 +92,16 @@ def _render_movie_search_results(query: str) -> None:
             with cols[i]:
                 st.markdown(poster_html(m["poster"], m["rating"], m["rating"] >= 8.0, m.get("year")), unsafe_allow_html=True)
                 st.markdown(f"**{m['title']}**")
-                if st.button("ℹ️ Details", key=f"m_d_{row_start}_{m['id']}", use_container_width=True):
+                if st.button(t("details_btn"), key=f"m_d_{row_start}_{m['id']}", use_container_width=True):
                     show_movie_details(m["id"], m["title"], m["poster"], m["rating"], m["overview"])
-                if st.button("🎬 Similar", key=f"m_s_{row_start}_{m['id']}", use_container_width=True):
+                if st.button(t("more_like_this_btn"), key=f"m_s_{row_start}_{m['id']}", use_container_width=True):
                     with st.spinner("Loading..."):
                         state.set_recommendations(more_like_this(m["id"], m["title"]), m["title"])
                     st.rerun()
 
 
 def _render_tv_search_results(query: str) -> None:
-    with st.spinner("Searching TV shows..."):
+    with st.spinner(t("searching_tv")):
         results = tmdb.search_tv(query)
     if not results:
         st.markdown(_NO_RESULTS_HTML, unsafe_allow_html=True)
@@ -113,16 +113,16 @@ def _render_tv_search_results(query: str) -> None:
             with cols[i]:
                 st.markdown(poster_html(m["poster"], m["rating"], m["rating"] >= 8.0, m.get("year")), unsafe_allow_html=True)
                 st.markdown(f"**{m['title']}**")
-                if st.button("ℹ️ Details", key=f"tv_d_{row_start}_{m['id']}", use_container_width=True):
+                if st.button(t("details_btn"), key=f"tv_d_{row_start}_{m['id']}", use_container_width=True):
                     show_tv_details(m["id"], m["title"], m["poster"], m["rating"], m["overview"])
-                if st.button("📺 Similar", key=f"tv_s_{row_start}_{m['id']}", use_container_width=True):
+                if st.button(t("more_like_this_btn"), key=f"tv_s_{row_start}_{m['id']}", use_container_width=True):
                     with st.spinner("Loading..."):
                         state.set_recommendations(tmdb.fetch_tv_recommendations(m["id"]), m["title"])
                     st.rerun()
 
 
 def _render_person_search_results(query: str) -> None:
-    with st.spinner("Searching people..."):
+    with st.spinner(t("searching_people")):
         persons = tmdb.search_person(query)
     if not persons:
         st.markdown(_NO_PEOPLE_HTML, unsafe_allow_html=True)
