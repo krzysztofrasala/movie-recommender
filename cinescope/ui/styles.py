@@ -72,18 +72,28 @@ h2, h3 {
 }
 
 /* ── Tabs ── */
-.stTabs [data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid #222; }
+.stTabs [data-baseweb="tab-list"] {
+    gap: 6px !important;
+    border-bottom: 1px solid #262626 !important;
+    padding-bottom: 2px !important;
+}
 .stTabs [data-baseweb="tab"] {
-    border-radius: 8px 8px 0 0 !important;
-    padding: 10px 22px !important;
-    color: #777 !important;
+    border-radius: 10px 10px 0 0 !important;
+    padding: 10px 18px !important;
+    color: #888 !important;
     font-weight: 600 !important;
-    font-size: 0.85rem !important;
+    font-size: 0.88rem !important;
+    transition: all 0.2s ease !important;
+}
+.stTabs [data-baseweb="tab"]:hover {
+    color: #fff !important;
+    background: rgba(255, 255, 255, 0.05) !important;
 }
 .stTabs [aria-selected="true"] {
-    background: #181818 !important;
+    background: linear-gradient(180deg, rgba(245, 197, 24, 0.14) 0%, rgba(245, 197, 24, 0.02) 100%) !important;
     color: #F5C518 !important;
-    border-bottom: 2px solid #F5C518 !important;
+    border-bottom: 3px solid #F5C518 !important;
+    font-weight: 700 !important;
 }
 
 /* ── Sidebar ── */
