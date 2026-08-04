@@ -153,39 +153,50 @@ hr { border-color: #1e1e1e !important; margin: 1.5rem 0 !important; }
     background-size: cover;
     background-position: center top;
     border-radius: 16px;
-    padding: 50px 60px;
-    margin-bottom: 6px;
-    min-height: 230px;
-    border: 1px solid #222;
+    padding: 44px 50px;
+    margin-bottom: 12px;
+    min-height: 240px;
+    border: 1px solid #2a2a2a;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
 }
 .cs-motd-eyebrow {
     color: #F5C518;
-    font-size: 0.72rem;
-    font-weight: 700;
+    font-size: 0.75rem;
+    font-weight: 800;
     letter-spacing: 3px;
-    margin-bottom: 12px;
-    opacity: 0.9;
+    margin-bottom: 10px;
+    text-transform: uppercase;
 }
 .cs-motd-title {
     color: #fff;
-    font-size: 2.2rem;
-    font-weight: 800;
-    margin-bottom: 6px;
-    letter-spacing: -0.5px;
-    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-    line-height: 1.15;
+    font-size: 2.6rem;
+    font-weight: 900;
+    margin-bottom: 8px;
+    letter-spacing: -0.8px;
+    text-shadow: 0 4px 16px rgba(0,0,0,0.8);
+    line-height: 1.1;
 }
-.cs-motd-rating {
+.cs-motd-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.cs-motd-badge {
+    background: rgba(245, 197, 24, 0.18);
     color: #F5C518;
-    font-size: 0.95rem;
-    margin-bottom: 16px;
+    border: 1px solid rgba(245, 197, 24, 0.35);
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
     font-weight: 700;
 }
 .cs-motd-overview {
-    color: #bbb;
-    font-size: 0.88rem;
-    max-width: 500px;
-    line-height: 1.65;
+    color: #ccc;
+    font-size: 0.9rem;
+    max-width: 580px;
+    line-height: 1.6;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.7);
 }
 
 /* ── Column (Card) Hover Animations ── */

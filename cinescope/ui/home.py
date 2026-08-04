@@ -27,25 +27,40 @@ def _is_filtered(filters: dict) -> bool:
 def _render_film_of_the_day() -> None:
     motd = tmdb.fetch_movie_of_the_day()
     if motd and motd["backdrop"]:
-        overview = motd["overview"][:240] + ("..." if len(motd["overview"]) > 240 else "")
+        overview = motd["overview"][:260] + ("..." if len(motd["overview"]) > 260 else "")
         label_motd = t("film_of_day").upper()
         st.markdown(f"""
-        <div class="cs-motd-banner" style="background-image: linear-gradient(to right, rgba(5,5,5,0.97) 30%, rgba(5,5,5,0.55) 70%, rgba(5,5,5,0.1)), url({motd['backdrop']});">
+        <div class="cs-motd-banner" style="background-image: linear-gradient(to right, rgba(8,8,8,0.98) 35%, rgba(8,8,8,0.75) 65%, rgba(8,8,8,0.15)), url({motd['backdrop']});">
             <div class="cs-motd-eyebrow">🎬 &nbsp; {label_motd}</div>
             <div class="cs-motd-title">{motd['title']}</div>
-            <div class="cs-motd-rating">⭐ {motd['rating']}/10</div>
+            <div class="cs-motd-meta">
+                <span class="cs-motd-badge">⭐ {motd['rating']}/10</span>
+            </div>
             <div class="cs-motd-overview">{overview}</div>
         </div>
         """, unsafe_allow_html=True)
-        c1, c2, _ = st.columns([1, 1, 6])
+        c1, c2, c3, c4 = st.columns([1.6, 1.6, 1.8, 3])
         with c1:
+            if st.button(t("details_btn"), key="motd_det", use_container_width=True):
+                show_movie_details(motd["id"], motd["title"], motd["poster"], motd["rating"], motd["overview"])
+        with c2:
             if st.button(t("more_like_this_btn"), key="motd_rec", use_container_width=True):
                 with st.spinner("Loading..."):
                     state.set_recommendations(more_like_this(motd["id"], motd["title"]), motd["title"])
                 st.rerun()
-        with c2:
-            if st.button(t("details_btn"), key="motd_det", use_container_width=True):
-                show_movie_details(motd["id"], motd["title"], motd["poster"], motd["rating"], motd["overview"])
+        with c3:
+            in_wl = any(m["title"] == motd["title"] for m in st.session_state.get("watchlist", []))
+            if in_wl:
+                st.button(t("in_watchlist_btn"), key="motd_wl", disabled=True, use_container_width=True)
+            else:
+                if st.button(t("add_to_watchlist_btn"), key="motd_wl", use_container_width=True):
+                    if state.add_to_watchlist(motd["title"], motd["poster"], motd["rating"]):
+                        st.toast(f"❤️ **{motd['title']}** added to watchlist!")
+                        st.rerun()
+        with c4:
+            trailer_url = tmdb.fetch_movie_trailer(motd["id"])
+            if trailer_url:
+                st.link_button(t("watch_trailer"), trailer_url, use_container_width=True)
 
     st.markdown("---")
 
