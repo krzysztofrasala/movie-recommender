@@ -152,11 +152,11 @@ hr { border-color: #1e1e1e !important; margin: 1.5rem 0 !important; }
 /* ── Caption ── */
 .stCaption { color: #888 !important; font-size: 0.78rem !important; }
 
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #111; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #F5C518; }
+/* ── Custom Dark & Gold Scrollbar ── */
+::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
+::-webkit-scrollbar-track { background: #0a0a0a !important; }
+::-webkit-scrollbar-thumb { background: #262626 !important; border-radius: 4px !important; border: 2px solid #0a0a0a !important; }
+::-webkit-scrollbar-thumb:hover { background: #F5C518 !important; }
 
 /* ── Film of the Day banner ─────────────────────────────────────────────── */
 .cs-motd-banner {

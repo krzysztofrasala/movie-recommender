@@ -66,7 +66,9 @@ def _render_film_of_the_day() -> None:
 
 
 def _render_trending(filters: dict) -> None:
-    st.subheader(t("trending_today"))
+    head_col, nav_col = st.columns([8.5, 1.5], vertical_alignment="center")
+    with head_col:
+        st.subheader(t("trending_today"))
 
     if _is_filtered(filters):
         from cinescope.config import GENRE_NAME_TO_ID
@@ -83,13 +85,16 @@ def _render_trending(filters: dict) -> None:
             limit=20,
         )
         if trending:
-            prev_col, _, next_col = st.columns([1, 8, 1])
-            with prev_col:
-                if st.button("⬅️", use_container_width=True, key="tr_prev_filtered") and st.session_state.trending_index > 0:
-                    st.session_state.trending_index -= TRENDING_PAGE_SIZE
-            with next_col:
-                if st.button("➡️", use_container_width=True, key="tr_next_filtered") and st.session_state.trending_index < TRENDING_MAX_INDEX:
-                    st.session_state.trending_index += TRENDING_PAGE_SIZE
+            with nav_col:
+                p_col, n_col = st.columns(2)
+                with p_col:
+                    if st.button("⬅️", use_container_width=True, key="tr_prev_filtered") and st.session_state.trending_index > 0:
+                        st.session_state.trending_index -= TRENDING_PAGE_SIZE
+                        st.rerun()
+                with n_col:
+                    if st.button("➡️", use_container_width=True, key="tr_next_filtered") and st.session_state.trending_index < TRENDING_MAX_INDEX:
+                        st.session_state.trending_index += TRENDING_PAGE_SIZE
+                        st.rerun()
             start = st.session_state.trending_index
             render_movie_row(trending[start:start + TRENDING_PAGE_SIZE], "tr", filters=filters, pre_filtered=True)
         else:
@@ -97,13 +102,16 @@ def _render_trending(filters: dict) -> None:
     else:
         trending = tmdb.fetch_trending()
         if trending:
-            prev_col, _, next_col = st.columns([1, 8, 1])
-            with prev_col:
-                if st.button("⬅️", use_container_width=True) and st.session_state.trending_index > 0:
-                    st.session_state.trending_index -= TRENDING_PAGE_SIZE
-            with next_col:
-                if st.button("➡️", use_container_width=True) and st.session_state.trending_index < TRENDING_MAX_INDEX:
-                    st.session_state.trending_index += TRENDING_PAGE_SIZE
+            with nav_col:
+                p_col, n_col = st.columns(2)
+                with p_col:
+                    if st.button("⬅️", use_container_width=True, key="tr_prev") and st.session_state.trending_index > 0:
+                        st.session_state.trending_index -= TRENDING_PAGE_SIZE
+                        st.rerun()
+                with n_col:
+                    if st.button("➡️", use_container_width=True, key="tr_next") and st.session_state.trending_index < TRENDING_MAX_INDEX:
+                        st.session_state.trending_index += TRENDING_PAGE_SIZE
+                        st.rerun()
             start = st.session_state.trending_index
             render_movie_row(trending[start:start + TRENDING_PAGE_SIZE], "tr", filters=filters)
 
