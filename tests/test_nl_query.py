@@ -26,7 +26,9 @@ def test_empty_query_returns_neutral_defaults():
         "year_lte": None,
         "vote_gte": None,
         "sort_by": "popularity.desc",
+        "with_original_language": None,
     }
+
 
 
 def test_single_genre_keyword():
@@ -128,3 +130,25 @@ def test_all_genre_keywords_are_lowercase():
     """Parser lowercases input, so keyword table must match."""
     for keyword in GENRE_KEYWORDS:
         assert keyword == keyword.lower(), f"non-lowercase key: {keyword!r}"
+
+
+def test_fallback_when_pytest_env_absent_and_no_gemini_key(monkeypatch):
+    """Ensure parse_natural_query returns fallback dict when Gemini is not configured and not in pytest mode."""
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    result = parse_natural_query("scary movie")
+    assert HORROR in result["genres"]
+
+
+@pytest.mark.parametrize("query,expected_lang", [
+    ("find some polish movies", "pl"),
+    ("polskie komedie", "pl"),
+    ("french drama", "fr"),
+    ("japanese anime", "ja"),
+    ("hiszpańskie horrory", "es"),
+])
+def test_language_keyword_detection(query: str, expected_lang: str):
+    result = parse_natural_query(query)
+    assert result["with_original_language"] == expected_lang
+
+

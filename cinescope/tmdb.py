@@ -282,9 +282,11 @@ def discover_by_decade(start_year: int, end_year: int) -> list[dict]:
 
 @st.cache_data(ttl=HOUR)
 def smart_discover(genres: tuple, year_gte: int | None, year_lte: int | None,
-                   vote_gte: float | None, sort_by: str) -> list[dict]:
+                   vote_gte: float | None, sort_by: str,
+                   with_original_language: str | None = None) -> list[dict]:
     """Discover movies matching filters parsed from a natural-language query."""
-    params: dict = {"sort_by": sort_by, "vote_count.gte": 100, "language": "en-US"}
+    min_votes = 10 if with_original_language else 100
+    params: dict = {"sort_by": sort_by, "vote_count.gte": min_votes, "language": "en-US"}
     if genres:
         params["with_genres"] = ",".join(str(g) for g in genres)
     if year_gte:
@@ -293,6 +295,8 @@ def smart_discover(genres: tuple, year_gte: int | None, year_lte: int | None,
         params["primary_release_date.lte"] = f"{year_lte}-12-31"
     if vote_gte:
         params["vote_average.gte"] = vote_gte
+    if with_original_language:
+        params["with_original_language"] = with_original_language
     d = _get("discover/movie", params)
     return [_movie_summary(m) for m in d.get("results", [])[:10]] if d else []
 

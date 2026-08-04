@@ -58,3 +58,19 @@ def test_movie_summary_handles_missing_optional_fields():
     assert summary["rating"] == 0
     assert summary["poster"] == PLACEHOLDER_POSTER
     assert summary["overview"] == ""
+
+
+def test_smart_discover_with_language():
+    from unittest.mock import patch
+    from cinescope.tmdb import smart_discover
+
+    with patch("cinescope.tmdb._get") as mock_get:
+        mock_get.return_value = {"results": [{"id": 100, "title": "Znachor", "vote_average": 8.1, "poster_path": "/z.jpg"}]}
+        results = smart_discover(genres=(), year_gte=None, year_lte=None, vote_gte=None, sort_by="popularity.desc", with_original_language="pl")
+        assert len(results) == 1
+        assert results[0]["title"] == "Znachor"
+        mock_get.assert_called_once()
+        call_params = mock_get.call_args[0][1]
+        assert call_params["with_original_language"] == "pl"
+        assert call_params["vote_count.gte"] == 10
+

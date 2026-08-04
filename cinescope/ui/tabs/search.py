@@ -6,7 +6,7 @@ import streamlit as st
 
 from cinescope import state, tmdb
 from cinescope.i18n import t
-from cinescope.nl_query import GENRE_KEYWORDS, SORT_KEYWORDS, parse_natural_query
+from cinescope.nl_query import GENRE_ID_TO_NAME, GENRE_KEYWORDS, SORT_KEYWORDS, parse_natural_query
 from cinescope.recommender import more_like_this
 from cinescope.ui.dialogs import show_movie_details, show_tv_details
 from cinescope.ui.html import justwatch_url, poster_html
@@ -28,13 +28,14 @@ _PLACEHOLDERS = {
     "🎬 Movies": "e.g. Dune, Oppenheimer...",
     "📺 TV Shows": "e.g. Breaking Bad, The Bear...",
     "🎭 People (Actors & Directors)": "e.g. Christopher Nolan, Meryl Streep...",
+    "⚡ Discover Pro (Actors, Lang)": "Use the filters below...",
+    "🧠 Describe It": "e.g. scary movie from the 90s, best romantic comedy...",
 }
 
 LANG_OPTIONS = {
-    "Any language / Każdy język": None,
+    "Any Language": None,
     "🇵🇱 Polish (Polski)": "pl",
     "🇬🇧 English (Angielski)": "en",
-    "🇰🇷 Korean (Koreański)": "ko",
     "🇫🇷 French (Francuski)": "fr",
     "🇪🇸 Spanish (Hiszpański)": "es",
     "🇯🇵 Japanese (Japoński)": "ja",
@@ -46,9 +47,11 @@ LANG_OPTIONS = {
 def _describe_detected_filters(parsed: dict) -> None:
     """Show the user which filters were extracted from their description."""
     detected = []
-    genre_id_to_name = {v: k.title() for k, v in GENRE_KEYWORDS.items()}
     for genre_id in parsed["genres"]:
-        detected.append(f"**Genre:** {genre_id_to_name.get(genre_id, str(genre_id))}")
+        detected.append(f"**Genre:** {GENRE_ID_TO_NAME.get(genre_id, str(genre_id))}")
+    if parsed.get("with_original_language"):
+        lang_code = parsed["with_original_language"].upper()
+        detected.append(f"**Language:** {lang_code}")
     if parsed["year_gte"] or parsed["year_lte"]:
         gte = parsed["year_gte"] or "..."
         lte = parsed["year_lte"] or "..."
@@ -60,8 +63,8 @@ def _describe_detected_filters(parsed: dict) -> None:
     if detected:
         st.info("Detected: " + "  ·  ".join(detected))
 
-    if not parsed["genres"] and not parsed["year_gte"] and not parsed["year_lte"] and not parsed["vote_gte"]:
-        st.warning("No specific filters detected — showing popular results. Try adding a genre like *horror*, *comedy*, *romantic*, etc.")
+    if not parsed["genres"] and not parsed["year_gte"] and not parsed["year_lte"] and not parsed["vote_gte"] and not parsed.get("with_original_language"):
+        st.warning("No specific filters detected — showing popular results. Try adding a genre like *horror*, *comedy*, *romantic*, or a language like *polish*, *french*, etc.")
 
 
 def _render_discover_pro() -> None:
@@ -164,6 +167,7 @@ def _render_nl_search() -> None:
             parsed["year_lte"],
             parsed["vote_gte"],
             parsed["sort_by"],
+            parsed.get("with_original_language"),
         )
     if not results:
         st.markdown(_NO_NL_RESULTS_HTML, unsafe_allow_html=True)
