@@ -18,9 +18,8 @@ def mock_session_state(monkeypatch):
 def test_profile_initialization():
     state.init()
     assert "profiles" in st.session_state
-    assert "Krzysztof" in st.session_state["profiles"]
-    assert "Partnerka" in st.session_state["profiles"]
-    assert st.session_state["active_profile"] == "Krzysztof"
+    assert "User" in st.session_state["profiles"]
+    assert st.session_state["active_profile"] == "User"
 
 
 def test_profile_switching():
@@ -28,14 +27,15 @@ def test_profile_switching():
     state.add_to_watchlist("Dune", "poster.jpg", 8.5)
     assert len(st.session_state["watchlist"]) == 1
 
-    state.switch_profile("Partnerka")
-    assert st.session_state["active_profile"] == "Partnerka"
+    state.add_profile("SecondaryUser")
+    state.switch_profile("SecondaryUser")
+    assert st.session_state["active_profile"] == "SecondaryUser"
     assert len(st.session_state["watchlist"]) == 0
 
     state.add_to_watchlist("Oppenheimer", "oppen.jpg", 9.0)
     assert len(st.session_state["watchlist"]) == 1
 
-    state.switch_profile("Krzysztof")
+    state.switch_profile("User")
     assert len(st.session_state["watchlist"]) == 1
     assert st.session_state["watchlist"][0]["title"] == "Dune"
 

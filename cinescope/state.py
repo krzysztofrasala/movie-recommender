@@ -12,7 +12,7 @@ import streamlit as st
 from streamlit_local_storage import LocalStorage
 
 MAX_SEARCH_HISTORY = 10
-DEFAULT_PROFILES = ["Krzysztof", "Partnerka", "Rodzina"]
+DEFAULT_PROFILES = ["User"]
 
 # localStorage integration keys.
 _LS_COMPONENT_KEY = "cinescope_local_storage"
@@ -41,7 +41,7 @@ def _load_watchlist() -> list[dict]:
 
 
 def _sync_active_profile_to_session() -> None:
-    active = st.session_state.get("active_profile", "Krzysztof")
+    active = st.session_state.get("active_profile", "User")
     profiles = st.session_state.get("profiles", {})
     prof_data = profiles.get(active)
     if not prof_data:
@@ -75,7 +75,7 @@ def init() -> None:
     if "profiles" not in st.session_state:
         st.session_state["profiles"] = {
             p: {
-                "watchlist": _load_watchlist() if p == "Krzysztof" else [],
+                "watchlist": _load_watchlist() if p == "User" else [],
                 "user_ratings": {},
                 "rated_movies_info": {},
                 "search_history": [],
@@ -83,7 +83,7 @@ def init() -> None:
             for p in DEFAULT_PROFILES
         }
     if "active_profile" not in st.session_state:
-        st.session_state["active_profile"] = "Krzysztof"
+        st.session_state["active_profile"] = "User"
 
     _sync_active_profile_to_session()
 
@@ -171,7 +171,7 @@ def set_recommendations(recs: list[dict], source_title: str, add_to_history: boo
 
 def export_user_data_json() -> str:
     """Serialize all profiles into JSON format."""
-    active = st.session_state.get("active_profile", "Krzysztof")
+    active = st.session_state.get("active_profile", "User")
     profiles = st.session_state.get("profiles")
     if not profiles:
         profiles = {
@@ -233,7 +233,7 @@ def import_user_data_json(json_str: str) -> bool:
             _sync_active_profile_to_session()
             return True
         elif "watchlist" in data:
-            active = st.session_state.get("active_profile", "Krzysztof")
+            active = st.session_state.get("active_profile", "User")
             if "profiles" not in st.session_state or not isinstance(st.session_state["profiles"], dict):
                 st.session_state["profiles"] = {}
             st.session_state.profiles[active] = {

@@ -22,7 +22,7 @@
 - **🍿 VOD Filtering** — filter by Polish streaming availability (**Netflix, Max, Disney+, Prime Video, Apple TV+, SkyShowtime**)
 
 ### 👥 Multi-User Profiles & Personalization
-- **👥 Profile Switcher** — instant switching between profiles (**"Krzysztof"**, **"Partnerka"**, **"Rodzina"**, or custom user profiles) directly in the sidebar
+- **👥 Profile Switcher** — instant switching between profiles (**"User"** or custom user profiles) directly in the header / sidebar
 - **🔒 Isolated Taste & Watchlists** — independent watchlists, star ratings, search history, and ML taste vectors per profile
 
 ### 🔍 Search & Discover Pro
