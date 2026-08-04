@@ -30,14 +30,14 @@ def justwatch_url(title: str) -> str:
 
 
 def poster_html(poster_url: str, rating: float, is_hot: bool = False, year=None) -> str:
-    """Poster image with a rating badge and optional HOT/year tags."""
-    hot_badge = '<div style="position:absolute;top:8px;left:8px;background:#E50914;color:#fff;padding:2px 8px;border-radius:12px;font-size:0.62rem;font-weight:800;letter-spacing:1px;">🔥 HOT</div>' if is_hot else ""
-    year_tag = f'<div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.75);color:#ccc;padding:2px 7px;border-radius:10px;font-size:0.65rem;">{year}</div>' if year else ""
+    """Poster image with glassmorphism rating badge and optional HOT/year tags."""
+    hot_badge = '<div style="position:absolute;top:8px;left:8px;background:rgba(229,9,20,0.9);color:#fff;padding:3px 9px;border-radius:12px;font-size:0.65rem;font-weight:800;letter-spacing:1px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);box-shadow:0 2px 8px rgba(0,0,0,0.4);">🔥 HOT</div>' if is_hot else ""
+    year_tag = f'<div style="position:absolute;top:8px;right:8px;background:rgba(15,15,15,0.8);color:#ddd;padding:3px 8px;border-radius:10px;font-size:0.68rem;font-weight:600;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);">{year}</div>' if year else ""
     rc = rating_color(rating)
     return f"""
-    <div style="position:relative;border-radius:10px;overflow:hidden;margin-bottom:6px;box-shadow:0 4px 15px rgba(0,0,0,0.5);">
-        <img src="{poster_url}" style="width:100%;display:block;">
-        <div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.85);color:{rc};padding:3px 9px;border-radius:12px;font-size:0.75rem;font-weight:800;">⭐ {rating}</div>
+    <div class="cs-poster-card" style="position:relative;border-radius:12px;overflow:hidden;margin-bottom:6px;box-shadow:0 4px 18px rgba(0,0,0,0.6);transition:all 0.25s cubic-bezier(0.165,0.84,0.44,1);">
+        <img src="{poster_url}" style="width:100%;display:block;border-radius:12px;">
+        <div style="position:absolute;bottom:8px;right:8px;background:rgba(10,10,10,0.82);color:{rc};padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:800;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);box-shadow:0 2px 8px rgba(0,0,0,0.5);">⭐ {rating}</div>
         {hot_badge}{year_tag}
     </div>"""
 

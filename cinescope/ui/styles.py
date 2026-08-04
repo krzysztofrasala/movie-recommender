@@ -201,11 +201,11 @@ hr { border-color: #1e1e1e !important; margin: 1.5rem 0 !important; }
 
 /* ── Column (Card) Hover Animations ── */
 [data-testid="stColumn"] {
-    transition: transform 0.2s ease, filter 0.2s ease;
+    transition: transform 0.25s cubic-bezier(0.165, 0.84, 0.44, 1), filter 0.25s ease !important;
 }
 [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:hover {
-    transform: translateY(-4px);
-    filter: drop-shadow(0 8px 16px rgba(245, 197, 24, 0.15));
+    transform: translateY(-6px) scale(1.025) !important;
+    filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 10px rgba(245, 197, 24, 0.2)) !important;
 }
 
 /* ── Dialog Glassmorphism ── */
